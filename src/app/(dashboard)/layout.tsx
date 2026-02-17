@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { LogOut, DollarSign, TrendingUp } from "lucide-react";
+import { LogOut, DollarSign, TrendingUp, Users } from "lucide-react";
 
 async function signOut() {
   "use server";
@@ -58,6 +58,13 @@ export default async function DashboardLayout({
               >
                 <DollarSign size={16} />
                 Pay Database
+              </Link>
+              <Link
+                href="/nurse/social"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
+              >
+                <Users size={16} />
+                Find Roommates
               </Link>
             </>
           )}
