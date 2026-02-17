@@ -1,26 +1,82 @@
+/* /src/app/globals.css */
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ===========================================================================
+   RNTell Brand Design Tokens
+   Tailwind v4 CSS-based theme configuration
+   =========================================================================== */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* --- Brand Peach (Gradients / Backgrounds) --- */
+  --color-brand-peach-50:  #FFE5E5;
+  --color-brand-peach-100: #FFB8A0;
+  --color-brand-peach-200: #FF9F7F;
+  --color-brand-peach-300: #FF8A66;
+  --color-brand-peach-400: #FF754D;
+
+  /* --- Brand Mint (Trust / Safety) --- */
+  --color-brand-mint-50:  #E8F5E9;
+  --color-brand-mint-100: #C8E6C9;
+  --color-brand-mint-200: #A5D6A7;
+  --color-brand-mint-300: #81C784;
+
+  /* --- CTA / Action Colors --- */
+  --color-brand-orange:     #FF7043;
+  --color-brand-orange-hover: #F4511E;
+  --color-brand-orange-light: #FF8A65;
+
+  /* --- Success / Verified --- */
+  --color-brand-success:       #66BB6A;
+  --color-brand-success-light: #81C784;
+  --color-brand-success-dark:  #4CAF50;
+
+  /* --- Neutrals --- */
+  --color-brand-warm:      #FAFAF8;
+  --color-brand-charcoal:  #2C2C2C;
+  --color-brand-gray-100:  #F5F5F4;
+  --color-brand-gray-200:  #E7E5E4;
+  --color-brand-gray-300:  #D6D3D1;
+  --color-brand-gray-400:  #A8A29E;
+  --color-brand-gray-500:  #78716C;
+
+  /* --- Danger / Lowball --- */
+  --color-brand-danger:       #EF4444;
+  --color-brand-danger-light: #FEE2E2;
+
+  /* --- Green (Ratings) --- */
+  --color-brand-green:       #22C55E;
+  --color-brand-green-light: #DCFCE7;
+
+  /* --- Semantic aliases --- */
+  --color-background: var(--color-brand-warm);
+  --color-foreground: var(--color-brand-charcoal);
+
+  /* --- Typography --- */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ===========================================================================
+   Base Styles
+   =========================================================================== */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===========================================================================
+   Container Utility (centered with padding)
+   =========================================================================== */
+
+@utility container {
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  width: 100%;
+  max-width: 80rem;
 }
