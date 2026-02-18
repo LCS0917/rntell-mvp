@@ -62,8 +62,15 @@ export async function updateSession(request: NextRequest) {
     user &&
     (pathname === "/login" || pathname === "/signup")
   ) {
+    // Check if admin — send them to /admin instead of /dashboard
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = profile?.role === "admin" ? "/admin" : "/dashboard";
     return NextResponse.redirect(url);
   }
 

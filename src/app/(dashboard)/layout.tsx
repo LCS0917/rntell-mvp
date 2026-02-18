@@ -33,7 +33,18 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const role = user.user_metadata?.role as string | undefined;
+  // Admin users should never see the regular dashboard — send them to /admin
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role === "admin") {
+    redirect("/admin");
+  }
+
+  const role = (profile?.role || user.user_metadata?.role) as string | undefined;
 
   return (
     <div className="flex min-h-screen">
