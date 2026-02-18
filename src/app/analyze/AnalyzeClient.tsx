@@ -109,8 +109,9 @@ export default function AnalyzeClient() {
         setResult(res.data);
       }
     } catch (err) {
-      console.error("Analysis failed:", err);
-      setError("Something went wrong. Please try again.");
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("Analysis failed:", message);
+      setError(`Something went wrong: ${message}`);
     } finally {
       setLoading(false);
     }

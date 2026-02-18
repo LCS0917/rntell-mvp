@@ -178,8 +178,9 @@ export async function analyzeContract(
       },
     };
   } catch (err) {
-    console.error("Analysis error:", err);
-    return { error: "Something went wrong. Please try again." };
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Analysis error:", message);
+    return { error: `Analysis failed: ${message}` };
   }
 }
 
