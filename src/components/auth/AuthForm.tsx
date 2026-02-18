@@ -4,12 +4,15 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { claimAnalyses } from "@/app/actions/claimAnalysis";
+import { FileText } from "lucide-react";
 
 interface AuthFormProps {
   mode: "login" | "signup";
+  fromAnalyze?: boolean;
 }
 
-export default function AuthForm({ mode }: AuthFormProps) {
+export default function AuthForm({ mode, fromAnalyze }: AuthFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,8 +43,6 @@ export default function AuthForm({ mode }: AuthFormProps) {
         setLoading(false);
         return;
       }
-
-      router.push("/dashboard");
     } else {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -53,15 +54,32 @@ export default function AuthForm({ mode }: AuthFormProps) {
         setLoading(false);
         return;
       }
-
-      router.push("/dashboard");
     }
 
+    // Claim any anonymous analyses from the /analyze flow
+    if (fromAnalyze) {
+      await claimAnalyses();
+    }
+
+    router.push("/dashboard");
     router.refresh();
   };
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-6">
+      {/* Contextual banner when coming from /analyze */}
+      {fromAnalyze && (
+        <div className="flex items-start gap-3 rounded-lg border border-brand-orange/30 bg-brand-peach-50 p-4">
+          <FileText className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-orange" />
+          <p className="text-sm text-brand-charcoal">
+            Your contract analysis is saved.{" "}
+            {mode === "signup"
+              ? "Create your free account to unlock negotiation levers and smart job matching for your offer."
+              : "Sign in to unlock negotiation levers and smart job matching for your offer."}
+          </p>
+        </div>
+      )}
+
       <div className="text-center">
         <h1 className="text-2xl font-bold text-brand-charcoal">
           {mode === "login" ? "Welcome back" : "Create your account"}
@@ -160,7 +178,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
           <>
             Don&apos;t have an account?{" "}
             <Link
-              href="/signup"
+              href={fromAnalyze ? "/signup?from=analyze" : "/signup"}
               className="font-medium text-brand-orange hover:text-brand-orange-hover"
             >
               Sign Up
@@ -170,7 +188,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
           <>
             Already have an account?{" "}
             <Link
-              href="/login"
+              href={fromAnalyze ? "/login?from=analyze" : "/login"}
               className="font-medium text-brand-orange hover:text-brand-orange-hover"
             >
               Sign In

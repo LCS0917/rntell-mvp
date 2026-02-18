@@ -6,7 +6,7 @@ const features = [
   {
     icon: DollarSign,
     title: "Verified Salary Data",
-    description: "See real GSA rates and agency gaps.",
+    description: "See real GSA rates and your margin opportunity.",
   },
   {
     icon: Users,
@@ -15,14 +15,14 @@ const features = [
   },
   {
     icon: Briefcase,
-    title: "Direct Hire",
-    description: "Zero agency fees. Higher pay for you.",
+    title: "Direct-to-Facility",
+    description: "Skip the middleman. Capture your full market value.",
   },
 ];
 
 const stats = [
   { icon: ShieldCheck, label: "100% Verified Data" },
-  { icon: Ban, label: "Zero Agency Margins" },
+  { icon: Ban, label: "Zero Middleman Fees" },
   { icon: Heart, label: "Nurse-First Design" },
 ];
 
@@ -39,8 +39,8 @@ export default function Home() {
             <br className="hidden sm:block" /> Connect directly.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-brand-gray-500">
-            The direct-to-facility marketplace that eliminates the middleman
-            agency.
+            The recruiterless marketplace. Go direct-to-facility and capture the
+            margin that used to go to the middleman.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link

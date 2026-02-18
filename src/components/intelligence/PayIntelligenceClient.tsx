@@ -16,17 +16,7 @@ import {
   type MarketValueResult,
 } from "@/app/actions/intelligence";
 import { TrendingUp, Sparkles, MessageSquareText, Loader2 } from "lucide-react";
-
-const SPECIALTIES = [
-  "ICU",
-  "ER",
-  "Med-Surg",
-  "L&D",
-  "NICU",
-  "OR",
-  "Tele",
-  "PCU",
-];
+import { SPECIALTIES } from "@/lib/constants";
 
 const BAR_COLORS = ["#78716C", "#FF7043", "#22C55E"];
 
@@ -72,8 +62,8 @@ export default function PayIntelligenceClient() {
   const chartData = result
     ? [
         { name: "Your Current Pay", value: result.current_weekly_pay },
-        { name: "Avg Agency Offer", value: result.avg_agency_offer },
-        { name: "Direct Hire Potential", value: result.direct_hire_potential },
+        { name: "Typical Middleman Offer", value: result.market_margin_opportunity },
+        { name: "Direct-to-Facility", value: result.direct_hire_potential },
       ]
     : [];
 
@@ -271,11 +261,11 @@ export default function PayIntelligenceClient() {
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-3 w-3 rounded" style={{ background: BAR_COLORS[1] }} />
-                Avg Agency Offer (Lower)
+                Typical Middleman Offer
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-3 w-3 rounded" style={{ background: BAR_COLORS[2] }} />
-                Direct Hire Potential (Higher)
+                Direct-to-Facility (Your Margin)
               </span>
             </div>
           </div>

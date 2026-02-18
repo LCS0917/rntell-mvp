@@ -1,8 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-
-const MOCK_GSA_WEEKLY_RATE = 2000;
+import { GSA_WEEKLY_BENCHMARK, STANDARD_WEEKLY_HOURS } from "@/lib/constants";
 
 export type SalaryFilters = {
   state?: string;
@@ -16,7 +15,7 @@ export type SalaryReport = {
   hourly_rate: number;
   stipend_housing: number;
   stipend_meals: number;
-  agency_gap_detected: boolean;
+  margin_risk_detected: boolean; // DB column name — represents "High Margin Risk"
   gsa_rate_comparison: number | null;
   is_verified: boolean;
   reported_at: string;
@@ -43,9 +42,9 @@ export async function submitSalaryReport(data: {
 
   if (!user) return { error: "Not authenticated" };
 
-  const weeklyPay = data.hourly_rate * 36 + data.stipend_housing + data.stipend_meals;
-  const agencyGapDetected = weeklyPay < MOCK_GSA_WEEKLY_RATE;
-  const gsaComparison = ((weeklyPay - MOCK_GSA_WEEKLY_RATE) / MOCK_GSA_WEEKLY_RATE) * 100;
+  const weeklyPay = data.hourly_rate * STANDARD_WEEKLY_HOURS + data.stipend_housing + data.stipend_meals;
+  const highMarginRisk = weeklyPay < GSA_WEEKLY_BENCHMARK;
+  const gsaComparison = ((weeklyPay - GSA_WEEKLY_BENCHMARK) / GSA_WEEKLY_BENCHMARK) * 100;
 
   const { error } = await supabase.from("salary_reports").insert({
     facility_id: data.facility_id,
@@ -55,7 +54,7 @@ export async function submitSalaryReport(data: {
     hourly_rate: data.hourly_rate,
     stipend_housing: data.stipend_housing,
     stipend_meals: data.stipend_meals,
-    agency_gap_detected: agencyGapDetected,
+    margin_risk_detected: highMarginRisk, // DB column kept; semantically = "High Margin Risk"
     gsa_rate_comparison: parseFloat(gsaComparison.toFixed(2)),
   });
 
@@ -76,7 +75,7 @@ export async function getSalaryReports(filters: SalaryFilters = {}) {
       hourly_rate,
       stipend_housing,
       stipend_meals,
-      agency_gap_detected,
+      margin_risk_detected,
       gsa_rate_comparison,
       is_verified,
       reported_at,

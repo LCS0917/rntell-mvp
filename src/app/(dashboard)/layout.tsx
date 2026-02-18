@@ -1,7 +1,16 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { LogOut, DollarSign, TrendingUp, Users } from "lucide-react";
+import {
+  LogOut,
+  DollarSign,
+  TrendingUp,
+  Users,
+  Briefcase,
+  FileText,
+  Inbox,
+  BarChart3,
+} from "lucide-react";
 
 async function signOut() {
   "use server";
@@ -37,13 +46,22 @@ export default async function DashboardLayout({
         </div>
 
         <nav className="flex-1 space-y-1 px-3">
+          {/* Market Snapshot — shared across roles */}
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
+          >
+            <BarChart3 size={16} />
+            Market Snapshot
+          </Link>
+
           {role === "nurse" && (
             <>
               <Link
                 href="/nurse"
                 className="block rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
               >
-                My Dashboard
+                My License HQ
               </Link>
               <Link
                 href="/nurse/pay-intelligence"
@@ -66,15 +84,38 @@ export default async function DashboardLayout({
                 <Users size={16} />
                 Find Roommates
               </Link>
+              <Link
+                href="/nurse/jobs"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
+              >
+                <Briefcase size={16} />
+                Direct-Hire Jobs
+              </Link>
+              <Link
+                href="/nurse/credentials"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
+              >
+                <FileText size={16} />
+                Credential Vault
+              </Link>
             </>
           )}
           {role === "facility" && (
-            <Link
-              href="/facility"
-              className="block rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
-            >
-              Facility Dashboard
-            </Link>
+            <>
+              <Link
+                href="/facility"
+                className="block rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
+              >
+                Employer Dashboard
+              </Link>
+              <Link
+                href="/facility/candidates"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
+              >
+                <Inbox size={16} />
+                Talent Pipeline
+              </Link>
+            </>
           )}
         </nav>
 

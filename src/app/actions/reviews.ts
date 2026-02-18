@@ -1,8 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-
-const MOCK_GSA_WEEKLY_RATE = 2000;
+import { GSA_WEEKLY_BENCHMARK, STANDARD_WEEKLY_HOURS } from "@/lib/constants";
 
 export async function submitReview(data: {
   facility_id: string;
@@ -135,7 +134,7 @@ export async function getFacilityWithReviews(facilityId: string) {
       ? {
           avgWeeklyPay: avg(
             salaryRows.map(
-              (r) => r.hourly_rate * 36 + r.stipend_housing + r.stipend_meals
+              (r) => r.hourly_rate * STANDARD_WEEKLY_HOURS + r.stipend_housing + r.stipend_meals
             )
           ),
           reportCount: salaryRows.length,
@@ -151,7 +150,7 @@ export async function getFacilityWithReviews(facilityId: string) {
     reviewCount: count,
     salaryAggregate,
     levers,
-    gsaBenchmark: MOCK_GSA_WEEKLY_RATE,
+    gsaBenchmark: GSA_WEEKLY_BENCHMARK,
   };
 }
 

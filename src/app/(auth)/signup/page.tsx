@@ -4,6 +4,16 @@ export const metadata = {
   title: "Sign Up | RNTell",
 };
 
-export default function SignupPage() {
-  return <AuthForm mode="signup" />;
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; session_id?: string }>;
+}) {
+  const params = await searchParams;
+  return (
+    <AuthForm
+      mode="signup"
+      fromAnalyze={params.from === "analyze"}
+    />
+  );
 }

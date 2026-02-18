@@ -28,7 +28,7 @@ export default async function SalaryDashboardPage({ searchParams }: Props) {
             Verified Pay Database
           </h1>
           <p className="mt-1 text-sm text-brand-gray-500">
-            Real pay data from real nurses. No agency spin.
+            Real pay data from real nurses. See where to capture your margin.
           </p>
         </div>
         <Link
@@ -114,9 +114,9 @@ export default async function SalaryDashboardPage({ searchParams }: Props) {
                             Verified
                           </span>
                         )}
-                        {report.agency_gap_detected && (
+                        {report.margin_risk_detected && (
                           <span className="inline-flex items-center rounded-full bg-brand-danger-light px-2 py-0.5 text-xs font-medium text-brand-danger">
-                            Lowball Offer
+                            High Margin Risk
                           </span>
                         )}
                       </div>

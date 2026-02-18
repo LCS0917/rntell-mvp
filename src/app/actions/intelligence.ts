@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { DEFAULT_HOURLY_RATES, STANDARD_WEEKLY_HOURS, type Specialty } from "@/lib/constants";
 
 export type NurseProfile = {
   specialty: string;
@@ -16,7 +17,7 @@ export type MarketValueResult = {
   fair_market_value: number;
   high_range: number;
   current_weekly_pay: number;
-  avg_agency_offer: number;
+  market_margin_opportunity: number;
   direct_hire_potential: number;
   specialty: string;
   data_points: number;
@@ -49,18 +50,7 @@ export async function calculateMarketValue(
     baseHourlyRate = totalHourly / reports.length;
     dataPoints = reports.length;
   } else {
-    // Default base rates by specialty (mock data for MVP)
-    const defaultRates: Record<string, number> = {
-      "ICU": 55,
-      "ER": 52,
-      "Med-Surg": 45,
-      "L&D": 50,
-      "NICU": 54,
-      "OR": 53,
-      "Tele": 47,
-      "PCU": 48,
-    };
-    baseHourlyRate = defaultRates[nurseProfile.specialty] ?? 48;
+    baseHourlyRate = DEFAULT_HOURLY_RATES[nurseProfile.specialty as Specialty] ?? 48;
     dataPoints = 0;
   }
 
@@ -82,7 +72,7 @@ export async function calculateMarketValue(
     : 350;
   const avgStipends = avgStipendHousing + avgStipendMeals;
 
-  const fairMarketWeekly = fairMarketHourly * 36 + avgStipends;
+  const fairMarketWeekly = fairMarketHourly * STANDARD_WEEKLY_HOURS + avgStipends;
 
   // Ranges: low is 90%, high is 115% of fair market value
   const lowRange = Math.round(fairMarketWeekly * 0.9);
@@ -92,10 +82,11 @@ export async function calculateMarketValue(
   const currentHourly = nurseProfile.current_hourly_rate ?? baseHourlyRate * 0.85;
   const currentHousing = nurseProfile.current_stipend_housing ?? avgStipendHousing * 0.9;
   const currentMeals = nurseProfile.current_stipend_meals ?? avgStipendMeals * 0.9;
-  const currentWeeklyPay = currentHourly * 36 + currentHousing + currentMeals;
+  const currentWeeklyPay = currentHourly * STANDARD_WEEKLY_HOURS + currentHousing + currentMeals;
 
-  // Avg agency offer is typically ~8% below market
-  const avgAgencyOffer = Math.round(fairMarketWeekly * 0.92);
+  // Market Margin Opportunity: typical middleman offer is ~8% below market.
+  // This is the margin the nurse can capture by going direct-to-facility.
+  const marketMarginOpp = Math.round(fairMarketWeekly * 0.92);
 
   // Direct hire potential is typically ~10% above market
   const directHirePotential = Math.round(fairMarketWeekly * 1.1);
@@ -106,7 +97,7 @@ export async function calculateMarketValue(
       fair_market_value: Math.round(fairMarketWeekly),
       high_range: highRange,
       current_weekly_pay: Math.round(currentWeeklyPay),
-      avg_agency_offer: avgAgencyOffer,
+      market_margin_opportunity: marketMarginOpp,
       direct_hire_potential: directHirePotential,
       specialty: nurseProfile.specialty,
       data_points: dataPoints,

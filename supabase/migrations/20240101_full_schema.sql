@@ -107,7 +107,7 @@ comment on table public.facilities is
 
 -- 4a. salary_reports
 create table public.salary_reports (
-  id                    uuid primary key default uuid_generate_v4(),
+  id                    uuid primary key default gen_random_uuid(),
   facility_id           uuid not null references public.facilities on delete cascade,
   nurse_id              uuid references public.nurses on delete set null,
   specialty             text,
@@ -130,7 +130,7 @@ comment on table public.salary_reports is
 
 -- 4b. negotiation_levers
 create table public.negotiation_levers (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   facility_id     uuid not null references public.facilities on delete cascade,
   lever_type      text not null,                    -- e.g. 'OT Multiplier', 'Callback Rate', 'Weekend Diff', 'Charge Nurse Diff'
   description     text,
@@ -146,7 +146,7 @@ comment on table public.negotiation_levers is
 
 -- 4c. facility_reviews
 create table public.facility_reviews (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   facility_id     uuid not null references public.facilities on delete cascade,
   nurse_id        uuid references public.nurses on delete set null,
   rating_overall  smallint not null check (rating_overall between 1 and 5),
@@ -170,7 +170,7 @@ comment on table public.facility_reviews is
 
 -- 5a. job_postings
 create table public.job_postings (
-  id                uuid primary key default uuid_generate_v4(),
+  id                uuid primary key default gen_random_uuid(),
   facility_id       uuid not null references public.facilities on delete cascade,
   title             text not null,                  -- e.g. 'ICU Travel RN - 13 Week Contract'
   specialty         text not null,                  -- e.g. ICU, Med/Surg, ER, L&D, NICU
@@ -194,7 +194,7 @@ comment on table public.job_postings is
 
 -- 5b. applications
 create table public.applications (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   job_id      uuid not null references public.job_postings on delete cascade,
   nurse_id    uuid not null references public.nurses on delete cascade,
   status      text not null default 'submitted'
@@ -210,7 +210,7 @@ comment on table public.applications is
 
 -- 5c. rn_matches (social / roommate matching)
 create table public.rn_matches (
-  id                  uuid primary key default uuid_generate_v4(),
+  id                  uuid primary key default gen_random_uuid(),
   nurse_a_id          uuid not null references public.nurses on delete cascade,
   nurse_b_id          uuid not null references public.nurses on delete cascade,
   compatibility_score numeric(5,2),                 -- 0-100 score
