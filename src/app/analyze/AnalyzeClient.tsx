@@ -22,7 +22,7 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-type FormData = {
+type ContractFormData = {
   facility_name: string;
   city: string;
   state: string;
@@ -36,7 +36,7 @@ type FormData = {
   travel_reimbursement: string;
 };
 
-const emptyForm: FormData = {
+const emptyForm: ContractFormData = {
   facility_name: "",
   city: "",
   state: "",
@@ -58,7 +58,7 @@ type Tab = "manual" | "pdf";
 
 export default function AnalyzeClient() {
   const [tab, setTab] = useState<Tab>("manual");
-  const [form, setForm] = useState<FormData>(emptyForm);
+  const [form, setForm] = useState<ContractFormData>(emptyForm);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,7 +68,7 @@ export default function AnalyzeClient() {
   const [pdfExtracted, setPdfExtracted] = useState(false);
   const [rawContractText, setRawContractText] = useState<string | null>(null);
 
-  const updateForm = (fields: Partial<FormData>) =>
+  const updateForm = (fields: Partial<ContractFormData>) =>
     setForm((prev) => ({ ...prev, ...fields }));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,15 +100,20 @@ export default function AnalyzeClient() {
       raw_contract_text: rawContractText ?? undefined,
     };
 
-    const res = await analyzeContract(input);
+    try {
+      const res = await analyzeContract(input);
 
-    if (res.error) {
-      setError(res.error);
-    } else if (res.data) {
-      setResult(res.data);
+      if (res.error) {
+        setError(res.error);
+      } else if (res.data) {
+        setResult(res.data);
+      }
+    } catch (err) {
+      console.error("Analysis failed:", err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handlePdfUpload = async (file: File) => {
@@ -326,8 +331,8 @@ function ContractForm({
   loading,
   error,
 }: {
-  form: FormData;
-  updateForm: (fields: Partial<FormData>) => void;
+  form: ContractFormData;
+  updateForm: (fields: Partial<ContractFormData>) => void;
   onSubmit: (e: React.FormEvent) => void;
   loading: boolean;
   error: string | null;
