@@ -66,24 +66,30 @@ export default async function AdminLayout({
         <nav className="flex-1 space-y-1 px-3">
           {navItems.map((item) => {
             const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.comingSoon ? "#" : item.href}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
-                  item.comingSoon
-                    ? "cursor-not-allowed text-brand-gray-400"
-                    : "text-brand-charcoal hover:bg-brand-gray-100"
-                }`}
-                onClick={item.comingSoon ? (e: React.MouseEvent) => e.preventDefault() : undefined}
-              >
-                <Icon size={16} />
-                {item.label}
-                {item.comingSoon && (
+
+            if (item.comingSoon) {
+              return (
+                <span
+                  key={item.href}
+                  className="flex cursor-not-allowed items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-gray-400"
+                >
+                  <Icon size={16} />
+                  {item.label}
                   <span className="ml-auto rounded-full bg-brand-gray-200 px-2 py-0.5 text-[10px] font-medium text-brand-gray-500">
                     Soon
                   </span>
-                )}
+                </span>
+              );
+            }
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
+              >
+                <Icon size={16} />
+                {item.label}
               </Link>
             );
           })}
