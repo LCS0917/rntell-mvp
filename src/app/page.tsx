@@ -61,22 +61,19 @@ export default async function Home() {
         </p>
         <div className="grid gap-8 md:grid-cols-3">
           <FlipCard
-            icon={DollarSign}
+            icon={<DollarSign className="h-7 w-7 text-brand-success-dark" />}
             title="Real Take-Home Clarity"
-            subtitle="Know What You Actually Earn"
-            backContent="Net pay after housing, full stipend breakdown, and margin detection — so you know exactly what lands in your account."
+            subtitle="Net pay after housing, full stipend breakdown, and margin detection — so you know exactly what lands in your account."
           />
           <FlipCard
-            icon={Award}
+            icon={<Award className="h-7 w-7 text-brand-success-dark" />}
             title="Federal & Long-Term Value Detection"
-            subtitle="Surface Loan Forgiveness Opportunities"
-            backContent="Automatic PSLF eligibility detection, HRSA HPSA lookup, and a federal strength score for every contract you analyze."
+            subtitle="Automatic PSLF eligibility detection, HRSA HPSA lookup, and a federal strength score for every contract you analyze."
           />
           <FlipCard
-            icon={Target}
+            icon={<Target className="h-7 w-7 text-brand-success-dark" />}
             title="Smarter Job Matching"
-            subtitle="Match Based on Fit & Financial Strength"
-            backContent="Smart Match scoring ranks jobs by specialty fit, license alignment, and financial strength — so you see the best opportunities first."
+            subtitle="Smart Match scoring ranks jobs by specialty fit, license alignment, and financial strength — so you see the best opportunities first."
           />
         </div>
       </SectionContainer>
