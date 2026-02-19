@@ -665,30 +665,35 @@ export async function createFacility(data: {
   });
   if (authError) throw authError;
 
-  const facilityId = authUser.user.id;
+  const profileId = authUser.user.id;
 
-  // Update the profile name
+  // Update the profile full_name (trigger creates the row with 'Unnamed Facility')
   const { error: profileError } = await db
     .from("profiles")
     .update({ full_name: data.name })
-    .eq("id", facilityId);
+    .eq("id", profileId);
   if (profileError) throw profileError;
 
-  // Insert into facilities
-  const { error } = await db.from("facilities").insert({
-    id: facilityId,
-    name: data.name,
-    location_city: data.location_city || null,
-    location_state: data.location_state || null,
-    type: data.type || null,
-    data_source: data.data_source || "imported",
-    description: data.description || null,
-    website: data.website || null,
-    is_claimed: false,
-  });
+  // The auth trigger (handle_new_user) already inserted a facilities row
+  // with profile_id = profileId. Update it with the admin-supplied data.
+  const { data: facility, error } = await db
+    .from("facilities")
+    .update({
+      name: data.name,
+      location_city: data.location_city || null,
+      location_state: data.location_state || null,
+      type: data.type || null,
+      data_source: data.data_source || "imported",
+      description: data.description || null,
+      website: data.website || null,
+      is_claimed: true,   // Admin-created = claimed by definition
+    })
+    .eq("profile_id", profileId)
+    .select("id")
+    .single();
   if (error) throw error;
 
-  return { success: true, id: facilityId };
+  return { success: true, id: facility.id };
 }
 
 // ---------------------------------------------------------------------------
@@ -772,9 +777,19 @@ export async function updateFacility(
   const db = createAdminClient();
   const { error } = await db.from("facilities").update(data).eq("id", facilityId);
   if (error) throw error;
-  // Sync profile name if name changed
+  // Sync profile name only for claimed facilities (those with a profile_id)
   if (data.name) {
-    await db.from("profiles").update({ full_name: data.name }).eq("id", facilityId);
+    const { data: facility } = await db
+      .from("facilities")
+      .select("profile_id")
+      .eq("id", facilityId)
+      .single();
+    if (facility?.profile_id) {
+      await db
+        .from("profiles")
+        .update({ full_name: data.name })
+        .eq("id", facility.profile_id);
+    }
   }
   return { success: true };
 }
@@ -789,4 +804,100 @@ export async function getFacilityList() {
     .order("name");
   if (error) throw error;
   return data || [];
+}
+
+// ---------------------------------------------------------------------------
+// SCRAPER MANAGEMENT
+// ---------------------------------------------------------------------------
+
+export type ScrapeJobStatus =
+  | "queued"
+  | "running"
+  | "complete"
+  | "failed"
+  | "cancelled";
+
+export interface ScrapeJobRecord {
+  id: string;
+  source_type: string;
+  source_name: string;
+  state_filter: string | null;
+  status: ScrapeJobStatus;
+  records_created: number;
+  records_updated: number;
+  facilities_created: number;
+  duplicates_skipped: number;
+  jobs_deactivated: number;
+  errors: Array<{ url: string; message: string }>;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+}
+
+/**
+ * Fetch recent scrape_jobs records for the admin dashboard.
+ * Returns the 50 most recent runs, newest first.
+ */
+export async function getScrapeJobs(): Promise<ScrapeJobRecord[]> {
+  await requireAdmin();
+  const db = createAdminClient();
+
+  const { data, error } = await db
+    .from("scrape_jobs")
+    .select(
+      "id, source_type, source_name, state_filter, status, " +
+        "records_created, records_updated, facilities_created, " +
+        "duplicates_skipped, jobs_deactivated, errors, " +
+        "started_at, finished_at, created_at"
+    )
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) throw error;
+  return (data as ScrapeJobRecord[]) || [];
+}
+
+/**
+ * Trigger a new scraper run via the Next.js API route.
+ * Creates a scrape_jobs record and spawns the Python process.
+ *
+ * Returns { scrape_job_id, status } from the API route.
+ */
+export async function triggerScraper(
+  source_type: string,
+  state?: string
+): Promise<{ scrape_job_id: string; status: string; message: string }> {
+  const { user } = await requireAdmin();
+
+  // We call our own API route so the subprocess is spawned by the API layer,
+  // not inside a server action (server actions don't support child_process well).
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000");
+
+  // Get current session cookie to forward auth
+  const { createClient } = await import("@/utils/supabase/server");
+  const supabase = await createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const resp = await fetch(`${baseUrl}/api/admin/run-scraper`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      // Forward the auth cookie — the API route validates it
+      Cookie: `sb-access-token=${session?.access_token ?? ""}; sb-refresh-token=${session?.refresh_token ?? ""}`,
+    },
+    body: JSON.stringify({ source_type, state }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ error: resp.statusText }));
+    throw new Error(err.error || "Failed to trigger scraper");
+  }
+
+  return resp.json();
 }
