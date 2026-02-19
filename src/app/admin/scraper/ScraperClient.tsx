@@ -16,7 +16,13 @@ const US_STATES = [
   "VT","VA","WA","WV","WI","WY",
 ];
 
-export default function ScraperClient({ jobs }: { jobs: ScrapeJobRecord[] }) {
+export default function ScraperClient({
+  jobs,
+  initError,
+}: {
+  jobs: ScrapeJobRecord[];
+  initError?: string;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -45,6 +51,13 @@ export default function ScraperClient({ jobs }: { jobs: ScrapeJobRecord[] }) {
         <Bot size={24} className="text-brand-orange" />
         <h1 className="text-2xl font-bold text-brand-charcoal">Scraper</h1>
       </div>
+
+      {initError && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 border border-red-200">
+          <AlertCircle size={16} className="shrink-0" />
+          <span><strong>Error loading scraper data:</strong> {initError}</span>
+        </div>
+      )}
 
       {/* Trigger panel */}
       <div className="rounded-xl border border-brand-gray-200 bg-white p-6">
