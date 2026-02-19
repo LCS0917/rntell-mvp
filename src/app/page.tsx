@@ -116,16 +116,6 @@ export default async function Home() {
         </SectionContainer>
       )}
 
-      {/* ── BOTTOM CTA ── */}
-      <SectionContainer bg="charcoal" className="py-16 md:py-20">
-        <div className="text-center">
-          <h2 className="mb-6 text-2xl font-bold text-white md:text-3xl">
-            Ready to see what your contract is really worth?
-          </h2>
-          <CTAButton href="/analyze">Analyze My Offer</CTAButton>
-        </div>
-      </SectionContainer>
-
       <Footer />
     </div>
   );

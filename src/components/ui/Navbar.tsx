@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function Navbar() {
   return (
-    <nav className="flex h-16 items-center justify-between border-b border-brand-gray-200 bg-white px-6">
+    <nav className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-brand-gray-200 bg-white px-6">
       {/* Logo */}
       <Link href="/" className="text-xl font-bold text-brand-orange">
         RNTell
