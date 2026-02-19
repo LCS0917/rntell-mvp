@@ -98,12 +98,11 @@ export function JobCard({
           </div>
         </div>
 
-        {/* Right: Pay + Actions */}
-        <div className="flex flex-row items-center gap-4 sm:flex-col sm:items-end sm:gap-3">
-          {/* Weekly pay */}
+        {/* Right: Pay + Apply — always side-by-side */}
+        <div className="flex shrink-0 items-center gap-4">
           <div className="text-right">
             {job.pay_package_total && (
-              <p className="text-3xl font-bold text-[#26C6DA]">
+              <p className="text-2xl font-bold text-[#26C6DA] sm:text-3xl">
                 ${job.pay_package_total.toLocaleString()}
                 <span className="text-sm font-normal text-[#666666]">
                   /wk
@@ -117,30 +116,27 @@ export function JobCard({
             )}
           </div>
 
-          {/* Action button — single CTA */}
-          <div className="flex items-center gap-2">
-            {isLoggedIn ? (
-              job.has_applied ? (
-                <span className="rounded-xl bg-brand-green-light px-3 py-1.5 text-sm font-medium text-brand-success-dark">
-                  Applied
-                </span>
-              ) : (
-                <Link
-                  href={`/jobs/${job.id}`}
-                  className="rounded-xl bg-orange-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-orange-600"
-                >
-                  Apply
-                </Link>
-              )
+          {isLoggedIn ? (
+            job.has_applied ? (
+              <span className="rounded-xl bg-brand-green-light px-4 py-2 text-sm font-medium text-brand-success-dark">
+                Applied
+              </span>
             ) : (
               <Link
                 href={`/jobs/${job.id}`}
-                className="rounded-xl bg-orange-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-orange-600"
+                className="rounded-xl bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
               >
                 Apply
               </Link>
-            )}
-          </div>
+            )
+          ) : (
+            <Link
+              href={`/jobs/${job.id}`}
+              className="rounded-xl bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+            >
+              Apply
+            </Link>
+          )}
         </div>
       </div>
     </div>
