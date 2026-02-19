@@ -6,8 +6,10 @@ import {
   updateFacilityClaim,
   updateFacilityVerification,
   updateFacilityNotes,
+  createFacility,
+  updateFacility,
 } from "@/app/actions/admin";
-import { Search, X, CheckCircle, XCircle, Flag, StickyNote } from "lucide-react";
+import { Search, X, CheckCircle, XCircle, Flag, StickyNote, Plus, Pencil } from "lucide-react";
 
 type Facility = {
   id: string;
@@ -24,9 +26,35 @@ type Facility = {
   created_at: string;
   jobs_count: number;
   reviews_count: number;
+  description: string | null;
+  website: string | null;
 };
 
 const VERIFICATION_STATUSES = ["unverified", "pending", "verified", "expired", "rejected"];
+
+const EMPTY_FORM = {
+  name: "",
+  location_city: "",
+  location_state: "",
+  type: "",
+  data_source: "imported",
+  description: "",
+  website: "",
+};
+
+type FormState = typeof EMPTY_FORM;
+
+function facilityToForm(f: Facility): FormState {
+  return {
+    name: f.name,
+    location_city: f.location_city ?? "",
+    location_state: f.location_state ?? "",
+    type: f.type ?? "",
+    data_source: f.data_source,
+    description: f.description ?? "",
+    website: f.website ?? "",
+  };
+}
 
 export default function FacilitiesClient({
   facilities,
@@ -37,11 +65,23 @@ export default function FacilitiesClient({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [selected, setSelected] = useState<Facility | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Detail / moderation panel
+  const [selected, setSelected] = useState<Facility | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [notes, setNotes] = useState("");
+
+  // Create modal
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState(EMPTY_FORM);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Edit modal
+  const [editFacility, setEditFacility] = useState<Facility | null>(null);
+  const [editForm, setEditForm] = useState(EMPTY_FORM);
+  const [editError, setEditError] = useState<string | null>(null);
 
   function updateFilter(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -57,6 +97,12 @@ export default function FacilitiesClient({
     setRejectReason("");
   }
 
+  function openEdit(f: Facility) {
+    setEditFacility(f);
+    setEditForm(facilityToForm(f));
+    setEditError(null);
+  }
+
   function handleClaim() {
     if (!selected) return;
     startTransition(async () => {
@@ -70,11 +116,7 @@ export default function FacilitiesClient({
     if (!selected) return;
     startTransition(async () => {
       await updateFacilityVerification(selected.id, "approve");
-      setSelected({
-        ...selected,
-        is_verified: true,
-        verification_status: "verified",
-      });
+      setSelected({ ...selected, is_verified: true, verification_status: "verified" });
       router.refresh();
     });
   }
@@ -98,9 +140,98 @@ export default function FacilitiesClient({
     });
   }
 
+  function handleCreate() {
+    if (!createForm.name) {
+      setCreateError("Name is required.");
+      return;
+    }
+    setCreateError(null);
+    startTransition(async () => {
+      try {
+        await createFacility({
+          name: createForm.name,
+          location_city: createForm.location_city || undefined,
+          location_state: createForm.location_state || undefined,
+          type: createForm.type || undefined,
+          data_source: createForm.data_source || "imported",
+          description: createForm.description || undefined,
+          website: createForm.website || undefined,
+        });
+        setCreateForm(EMPTY_FORM);
+        setShowCreate(false);
+        router.refresh();
+      } catch (e) {
+        setCreateError(e instanceof Error ? e.message : "Failed to create facility.");
+      }
+    });
+  }
+
+  function handleUpdate() {
+    if (!editFacility) return;
+    if (!editForm.name) {
+      setEditError("Name is required.");
+      return;
+    }
+    setEditError(null);
+    startTransition(async () => {
+      try {
+        await updateFacility(editFacility.id, {
+          name: editForm.name,
+          location_city: editForm.location_city || null,
+          location_state: editForm.location_state || null,
+          type: editForm.type || null,
+          data_source: editForm.data_source || "imported",
+          description: editForm.description || null,
+          website: editForm.website || null,
+        });
+        setEditFacility(null);
+        router.refresh();
+      } catch (e) {
+        setEditError(e instanceof Error ? e.message : "Failed to update facility.");
+      }
+    });
+  }
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-brand-charcoal">Facilities</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-brand-charcoal">Facilities</h1>
+        <button
+          onClick={() => { setShowCreate(true); setCreateError(null); setCreateForm(EMPTY_FORM); }}
+          className="flex items-center gap-1.5 rounded-lg bg-brand-orange px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+        >
+          <Plus size={16} />
+          Add Facility
+        </button>
+      </div>
+
+      {/* Create Modal */}
+      {showCreate && (
+        <FacilityFormModal
+          title="New Facility"
+          form={createForm}
+          setForm={setCreateForm}
+          error={createError}
+          isPending={isPending}
+          submitLabel="Create Facility"
+          onSubmit={handleCreate}
+          onClose={() => setShowCreate(false)}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {editFacility && (
+        <FacilityFormModal
+          title="Edit Facility"
+          form={editForm}
+          setForm={setEditForm}
+          error={editError}
+          isPending={isPending}
+          submitLabel="Save Changes"
+          onSubmit={handleUpdate}
+          onClose={() => setEditFacility(null)}
+        />
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
@@ -183,12 +314,13 @@ export default function FacilitiesClient({
                 <th className="px-4 py-3 font-medium text-brand-gray-500"># Jobs</th>
                 <th className="px-4 py-3 font-medium text-brand-gray-500"># Reviews</th>
                 <th className="px-4 py-3 font-medium text-brand-gray-500">Premium</th>
+                <th className="px-4 py-3 font-medium text-brand-gray-500"></th>
               </tr>
             </thead>
             <tbody>
               {facilities.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-brand-gray-400">
+                  <td colSpan={12} className="px-4 py-8 text-center text-brand-gray-400">
                     No facilities found.
                   </td>
                 </tr>
@@ -212,6 +344,15 @@ export default function FacilitiesClient({
                     <td className="px-4 py-3 text-center">{f.jobs_count}</td>
                     <td className="px-4 py-3 text-center">{f.reviews_count}</td>
                     <td className="px-4 py-3">{f.is_premium_subscriber ? "Yes" : "No"}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEdit(f); }}
+                        className="rounded p-1 text-brand-gray-400 hover:bg-brand-gray-200 hover:text-brand-charcoal"
+                        title="Edit"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -223,9 +364,7 @@ export default function FacilitiesClient({
         {selected && (
           <div className="w-96 shrink-0 space-y-4 rounded-xl border border-brand-gray-200 bg-white p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-brand-charcoal">
-                {selected.name}
-              </h3>
+              <h3 className="text-lg font-semibold text-brand-charcoal">{selected.name}</h3>
               <button onClick={() => setSelected(null)}>
                 <X size={18} className="text-brand-gray-400 hover:text-brand-charcoal" />
               </button>
@@ -252,7 +391,7 @@ export default function FacilitiesClient({
                 <button
                   onClick={handleClaim}
                   disabled={isPending}
-                  className="flex w-full items-center gap-2 rounded-lg bg-brand-orange px-4 py-2 text-sm font-medium text-white hover:bg-brand-orange-hover disabled:opacity-50"
+                  className="flex w-full items-center gap-2 rounded-lg bg-brand-orange px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   <Flag size={14} />
                   Mark as Claimed
@@ -339,6 +478,148 @@ export default function FacilitiesClient({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Facility form modal (shared for create & edit)
+// ---------------------------------------------------------------------------
+function FacilityFormModal({
+  title,
+  form,
+  setForm,
+  error,
+  isPending,
+  submitLabel,
+  onSubmit,
+  onClose,
+}: {
+  title: string;
+  form: FormState;
+  setForm: (f: FormState) => void;
+  error: string | null;
+  isPending: boolean;
+  submitLabel: string;
+  onSubmit: () => void;
+  onClose: () => void;
+}) {
+  function field(key: keyof FormState, value: string) {
+    setForm({ ...form, [key]: value });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-brand-charcoal">{title}</h2>
+          <button onClick={onClose}>
+            <X size={18} className="text-brand-gray-400 hover:text-brand-charcoal" />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-brand-gray-500">Name *</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => field("name", e.target.value)}
+              placeholder="e.g. UCSF Medical Center"
+              className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-brand-gray-500">City</label>
+              <input
+                type="text"
+                value={form.location_city}
+                onChange={(e) => field("location_city", e.target.value)}
+                placeholder="San Francisco"
+                className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-brand-gray-500">State</label>
+              <input
+                type="text"
+                value={form.location_state}
+                onChange={(e) => field("location_state", e.target.value)}
+                placeholder="CA"
+                maxLength={2}
+                className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-brand-gray-500">Type</label>
+              <input
+                type="text"
+                value={form.type}
+                onChange={(e) => field("type", e.target.value)}
+                placeholder="e.g. Hospital"
+                className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-brand-gray-500">Source</label>
+              <select
+                value={form.data_source}
+                onChange={(e) => field("data_source", e.target.value)}
+                className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+              >
+                <option value="imported">Imported</option>
+                <option value="self_reported">Self-Reported</option>
+                <option value="scraped">Scraped</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-brand-gray-500">Website</label>
+            <input
+              type="url"
+              value={form.website}
+              onChange={(e) => field("website", e.target.value)}
+              placeholder="https://example.com"
+              className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-brand-gray-500">Description</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => field("description", e.target.value)}
+              rows={3}
+              placeholder="Optional description…"
+              className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+            />
+          </div>
+
+          {error && <p className="text-sm text-brand-danger">{error}</p>}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-brand-gray-200 px-4 py-2 text-sm text-brand-gray-500 hover:bg-brand-gray-100"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onSubmit}
+              disabled={isPending}
+              className="rounded-lg bg-brand-orange px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {isPending ? "Saving…" : submitLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -357,9 +638,7 @@ function StatusBadge({ status }: { status: string }) {
     rejected: "bg-brand-danger-light text-brand-danger",
   };
   return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] || colors.unverified}`}
-    >
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] || colors.unverified}`}>
       {status}
     </span>
   );

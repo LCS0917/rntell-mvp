@@ -289,7 +289,8 @@ export async function getFacilities(filters?: {
     .from("facilities")
     .select(
       `id, name, location_city, location_state, type, data_source, is_claimed,
-       is_verified, verification_status, is_premium_subscriber, admin_notes, created_at`
+       is_verified, verification_status, is_premium_subscriber, admin_notes, created_at,
+       description, website`
     );
 
   if (filters?.state) query = query.eq("location_state", filters.state);
@@ -402,7 +403,7 @@ export async function getJobs(filters?: {
     .from("job_postings")
     .select(
       `id, title, specialty, pay_rate_hourly, stipend_housing, stipend_meals,
-       data_source, is_active, start_date, created_at, contract_weeks,
+       data_source, is_active, start_date, created_at, contract_weeks, description,
        facility_id, facilities!inner(name, location_city, location_state)`
     );
 
@@ -467,11 +468,13 @@ export async function getJobs(filters?: {
       is_active: j.is_active,
       applications_count: appsMap.get(j.id) || 0,
       date_posted: j.created_at,
+      facility_id: j.facility_id,
       pay_rate_hourly: j.pay_rate_hourly,
       stipend_housing: j.stipend_housing,
       stipend_meals: j.stipend_meals,
       contract_weeks: j.contract_weeks,
       start_date: j.start_date,
+      description: (j as unknown as { description: string | null }).description,
     };
   });
 }
@@ -709,6 +712,58 @@ export async function createJob(data: {
   });
   if (error) throw error;
 
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// UPDATE JOB
+// ---------------------------------------------------------------------------
+export async function updateJob(
+  jobId: string,
+  data: {
+    facility_id?: string;
+    title?: string;
+    specialty?: string;
+    pay_rate_hourly?: number | null;
+    stipend_housing?: number | null;
+    stipend_meals?: number | null;
+    contract_weeks?: number | null;
+    start_date?: string | null;
+    description?: string | null;
+    data_source?: string;
+    is_active?: boolean;
+  }
+) {
+  await requireAdmin();
+  const db = createAdminClient();
+  const { error } = await db.from("job_postings").update(data).eq("id", jobId);
+  if (error) throw error;
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// UPDATE FACILITY
+// ---------------------------------------------------------------------------
+export async function updateFacility(
+  facilityId: string,
+  data: {
+    name?: string;
+    location_city?: string | null;
+    location_state?: string | null;
+    type?: string | null;
+    data_source?: string;
+    description?: string | null;
+    website?: string | null;
+  }
+) {
+  await requireAdmin();
+  const db = createAdminClient();
+  const { error } = await db.from("facilities").update(data).eq("id", facilityId);
+  if (error) throw error;
+  // Sync profile name if name changed
+  if (data.name) {
+    await db.from("profiles").update({ full_name: data.name }).eq("id", facilityId);
+  }
   return { success: true };
 }
 
