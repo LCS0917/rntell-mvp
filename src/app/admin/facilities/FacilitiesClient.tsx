@@ -9,7 +9,7 @@ import {
   createFacility,
   updateFacility,
 } from "@/app/actions/admin";
-import { Search, X, CheckCircle, XCircle, Flag, StickyNote, Plus, Pencil } from "lucide-react";
+import { Search, X, CheckCircle, XCircle, Flag, StickyNote, Plus, Pencil, MapPin, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 
 type Facility = {
   id: string;
@@ -82,6 +82,46 @@ export default function FacilitiesClient({
   const [editFacility, setEditFacility] = useState<Facility | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Google Places populate
+  const [showPopulate, setShowPopulate] = useState(false);
+  const [popCity, setPopCity] = useState("");
+  const [popState, setPopState] = useState("");
+  const [popLoading, setPopLoading] = useState(false);
+  const [popResult, setPopResult] = useState<{
+    created: number;
+    skipped: number;
+    total_found: number;
+  } | null>(null);
+  const [popError, setPopError] = useState<string | null>(null);
+
+  async function handlePopulate() {
+    if (!popCity || !popState || popState.length !== 2) {
+      setPopError("Enter a city and 2-letter state code.");
+      return;
+    }
+    setPopLoading(true);
+    setPopError(null);
+    setPopResult(null);
+    try {
+      const res = await fetch("/api/admin/populate-facilities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city: popCity, state: popState }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setPopResult({ created: data.created, skipped: data.skipped, total_found: data.total_found });
+      router.refresh();
+    } catch (e) {
+      setPopError(e instanceof Error ? e.message : "Failed to populate.");
+    } finally {
+      setPopLoading(false);
+    }
+  }
 
   function updateFilter(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -203,6 +243,73 @@ export default function FacilitiesClient({
           <Plus size={16} />
           Add Facility
         </button>
+      </div>
+
+      {/* Google Places Populate */}
+      <div className="rounded-xl border border-brand-gray-200 bg-white">
+        <button
+          onClick={() => setShowPopulate(!showPopulate)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
+        >
+          <span className="flex items-center gap-2">
+            <MapPin size={16} className="text-brand-orange" />
+            Populate from Google Places
+          </span>
+          {showPopulate ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        {showPopulate && (
+          <div className="border-t border-brand-gray-200 px-4 py-4">
+            <p className="mb-3 text-xs text-brand-gray-500">
+              Search Google Maps for hospitals &amp; clinics in a city. New facilities are added with data_source=&quot;scraped&quot;, is_claimed=false.
+            </p>
+            <div className="flex items-end gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-brand-gray-500">City</label>
+                <input
+                  type="text"
+                  value={popCity}
+                  onChange={(e) => setPopCity(e.target.value)}
+                  placeholder="e.g. Houston"
+                  className="w-48 rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-brand-gray-500">State</label>
+                <input
+                  type="text"
+                  value={popState}
+                  onChange={(e) => setPopState(e.target.value.toUpperCase())}
+                  placeholder="TX"
+                  maxLength={2}
+                  className="w-20 rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+                />
+              </div>
+              <button
+                onClick={handlePopulate}
+                disabled={popLoading}
+                className="flex items-center gap-2 rounded-lg bg-brand-orange px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {popLoading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Searching…
+                  </>
+                ) : (
+                  <>
+                    <MapPin size={14} />
+                    Pull Facilities
+                  </>
+                )}
+              </button>
+            </div>
+            {popResult && (
+              <p className="mt-3 text-sm text-brand-success">
+                Found {popResult.total_found} facilities. Created {popResult.created}, skipped {popResult.skipped} (already exist).
+              </p>
+            )}
+            {popError && <p className="mt-3 text-sm text-brand-danger">{popError}</p>}
+          </div>
+        )}
       </div>
 
       {/* Create Modal */}
