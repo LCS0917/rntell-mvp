@@ -229,21 +229,21 @@ async function detectATS(website: string): Promise<{
 // ---------------------------------------------------------------------------
 
 async function fetchWorkdayJobs(careersUrl: string, facilityName: string): Promise<ScrapedJob[]> {
-  // Workday has a JSON API: append ?format=json or use the /jobs endpoint
-  // URL pattern: https://XXX.wd5.myworkdayjobs.com/en-US/SiteName
-  // API: https://XXX.wd5.myworkdayjobs.com/wday/cxs/XXX/SiteName/jobs
+  // Workday JSON API
+  // URL pattern: https://ORG.wd5.myworkdayjobs.com/en-US/SITE/jobs
+  // API: https://ORG.wd5.myworkdayjobs.com/wday/cxs/ORG/SITE/jobs
   try {
     const url = new URL(careersUrl);
-    // Extract org and site from URL path
-    const pathParts = url.pathname.split("/").filter(Boolean);
-    // Try to construct the API URL
     const host = url.host;
     const orgMatch = host.match(/^([^.]+)\./);
     if (!orgMatch) return [];
-
     const org = orgMatch[1];
-    // Site name is usually the last path segment
-    const site = pathParts[pathParts.length - 1] || pathParts[0] || "External";
+
+    // Path is like /en-US/multicare/jobs — filter out locale segments and "jobs"/"login"
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    const site = pathParts.find(
+      (p) => !p.match(/^[a-z]{2}(-[A-Z]{2})?$/) && p !== "jobs" && p !== "login"
+    ) || pathParts[0] || "External";
 
     const apiUrl = `https://${host}/wday/cxs/${org}/${site}/jobs`;
     const res = await fetch(apiUrl, {
