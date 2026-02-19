@@ -18,7 +18,7 @@ async function getFeaturedJobs() {
     )
     .eq("is_active", true)
     .order("created_at", { ascending: false })
-    .limit(5);
+    .limit(3);
   return data ?? [];
 }
 
@@ -95,7 +95,7 @@ export default async function Home() {
           <p className="mx-auto mb-10 max-w-xl text-center text-brand-gray-500">
             The latest direct-hire and verified opportunities.
           </p>
-          <div className="flex gap-5 overflow-x-auto pb-4 md:grid md:grid-cols-5 md:overflow-visible">
+          <div className="flex gap-5 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:overflow-visible">
             {featuredJobs.map((job) => {
               const facility = Array.isArray(job.facilities)
                 ? job.facilities[0]
