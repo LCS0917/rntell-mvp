@@ -87,6 +87,7 @@ export default function FacilitiesClient({
   const [showPopulate, setShowPopulate] = useState(false);
   const [popCity, setPopCity] = useState("");
   const [popState, setPopState] = useState("");
+  const [popMax, setPopMax] = useState("20");
   const [popLoading, setPopLoading] = useState(false);
   const [popResult, setPopResult] = useState<{
     created: number;
@@ -104,10 +105,11 @@ export default function FacilitiesClient({
     setPopError(null);
     setPopResult(null);
     try {
+      const maxNum = parseInt(popMax) || 20;
       const res = await fetch("/api/admin/populate-facilities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ city: popCity, state: popState }),
+        body: JSON.stringify({ city: popCity, state: popState, max_results: maxNum }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -235,7 +237,12 @@ export default function FacilitiesClient({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-brand-charcoal">Facilities</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-brand-charcoal">Facilities</h1>
+          <span className="rounded-full bg-brand-gray-100 px-3 py-1 text-sm font-medium text-brand-gray-500">
+            {facilities.length} total
+          </span>
+        </div>
         <button
           onClick={() => { setShowCreate(true); setCreateError(null); setCreateForm(EMPTY_FORM); }}
           className="flex items-center gap-1.5 rounded-lg bg-brand-orange px-4 py-2 text-sm font-medium text-white hover:opacity-90"
@@ -281,6 +288,17 @@ export default function FacilitiesClient({
                   onChange={(e) => setPopState(e.target.value.toUpperCase())}
                   placeholder="TX"
                   maxLength={2}
+                  className="w-20 rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-brand-gray-500">Max #</label>
+                <input
+                  type="number"
+                  value={popMax}
+                  onChange={(e) => setPopMax(e.target.value)}
+                  min={1}
+                  max={100}
                   className="w-20 rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
                 />
               </div>

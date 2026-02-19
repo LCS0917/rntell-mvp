@@ -30,6 +30,7 @@ interface PlaceResult {
 interface PopulateBody {
   city: string;
   state: string;
+  max_results?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json()) as PopulateBody;
-  const { city, state } = body;
+  const { city, state, max_results } = body;
 
   if (!city || !state || state.length !== 2) {
     return NextResponse.json(
@@ -144,8 +145,9 @@ export async function POST(request: NextRequest) {
   }
 
   const stateUpper = state.toUpperCase();
+  const limit = max_results && max_results > 0 ? max_results : 100;
 
-  // 3. Fetch from Google Places — paginate to get all results
+  // 3. Fetch from Google Places — paginate until we hit limit
   const allPlaces: PlaceResult[] = [];
   let nextPageToken: string | undefined;
 
@@ -158,25 +160,27 @@ export async function POST(request: NextRequest) {
     allPlaces.push(...result.places);
     nextPageToken = result.nextPageToken;
     page++;
-    // Safety: cap at 3 pages (60 results)
-  } while (nextPageToken && page < 3);
+  } while (nextPageToken && page < 3 && allPlaces.length < limit);
 
-  // Also search for clinics/medical centers (separate query)
-  const clinicQuery = `medical centers and clinics in ${city}, ${stateUpper}`;
-  nextPageToken = undefined;
-  page = 0;
+  // Also search for clinics/medical centers if we haven't hit the limit
+  if (allPlaces.length < limit) {
+    const clinicQuery = `medical centers and clinics in ${city}, ${stateUpper}`;
+    nextPageToken = undefined;
+    page = 0;
 
-  do {
-    const result = await searchPlaces(clinicQuery, nextPageToken);
-    allPlaces.push(...result.places);
-    nextPageToken = result.nextPageToken;
-    page++;
-  } while (nextPageToken && page < 2);
+    do {
+      const result = await searchPlaces(clinicQuery, nextPageToken);
+      allPlaces.push(...result.places);
+      nextPageToken = result.nextPageToken;
+      page++;
+    } while (nextPageToken && page < 2 && allPlaces.length < limit);
+  }
 
-  // Deduplicate by Google Place ID
+  // Deduplicate by Google Place ID, then cap at limit
   const uniquePlaces = new Map<string, PlaceResult>();
   for (const p of allPlaces) {
     if (p.id && !uniquePlaces.has(p.id)) {
+      if (uniquePlaces.size >= limit) break;
       uniquePlaces.set(p.id, p);
     }
   }
