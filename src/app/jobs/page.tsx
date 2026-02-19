@@ -4,6 +4,7 @@ import { getPublicJobPostings, getMatchedJobs } from "@/app/actions/jobs";
 import type { JobFilters } from "@/app/actions/jobs";
 import { createClient } from "@/utils/supabase/server";
 import { JobBoardClient } from "./JobBoardClient";
+import Footer from "@/components/ui/Footer";
 
 export const metadata: Metadata = {
   title: "Direct-Hire Travel Nursing Jobs | RNTell",
@@ -54,13 +55,16 @@ export default async function JobsPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
 
   return (
-    <JobBoardClient
-      jobs={jobsResult.data}
-      total={jobsResult.total}
-      matchedJobs={matchResult.data}
-      hasProfile={matchResult.hasProfile}
-      isLoggedIn={!!user}
-      currentSort={filters.sort || "newest"}
-    />
+    <>
+      <JobBoardClient
+        jobs={jobsResult.data}
+        total={jobsResult.total}
+        matchedJobs={matchResult.data}
+        hasProfile={matchResult.hasProfile}
+        isLoggedIn={!!user}
+        currentSort={filters.sort || "newest"}
+      />
+      <Footer />
+    </>
   );
 }

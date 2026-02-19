@@ -47,6 +47,16 @@
   --color-brand-green:       #22C55E;
   --color-brand-green-light: #DCFCE7;
 
+  /* --- Teal (Financial / Pay figures) --- */
+  --color-brand-teal: #26C6DA;
+
+  /* --- Amber (Warnings / Medium risk) --- */
+  --color-brand-amber: #FFB300;
+
+  /* --- Footer --- */
+  --color-footer-bg: #1A1A1A;
+  --color-footer-text: #CCCCCC;
+
   /* --- Semantic aliases --- */
   --color-background: var(--color-brand-warm);
   --color-foreground: var(--color-brand-charcoal);

@@ -1,106 +1,135 @@
-import Link from "next/link";
-import { DollarSign, Users, Briefcase, ShieldCheck, Ban, Heart } from "lucide-react";
+import { DollarSign, Award, Target } from "lucide-react";
 import Navbar from "@/components/ui/Navbar";
+import Footer from "@/components/ui/Footer";
+import SectionContainer from "@/components/ui/SectionContainer";
+import CTAButton from "@/components/ui/CTAButton";
+import TrustSignals from "@/components/ui/TrustSignals";
+import HowItWorks from "@/components/ui/HowItWorks";
+import FlipCard from "@/components/ui/FlipCard";
+import JobCardCompact from "@/components/ui/JobCardCompact";
+import { createClient } from "@/utils/supabase/server";
 
-const features = [
-  {
-    icon: DollarSign,
-    title: "Verified Salary Data",
-    description: "See real GSA rates and your margin opportunity.",
-  },
-  {
-    icon: Users,
-    title: "Roaming RN Social",
-    description: "Find roommates and community.",
-  },
-  {
-    icon: Briefcase,
-    title: "Direct-to-Facility",
-    description: "Skip the middleman. Capture your full market value.",
-  },
-];
+async function getFeaturedJobs() {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("job_postings")
+    .select(
+      "id, title, specialty, shift_type, pay_package_total, facilities(id, name, location_city, location_state)"
+    )
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  return data ?? [];
+}
 
-const stats = [
-  { icon: ShieldCheck, label: "100% Verified Data" },
-  { icon: Ban, label: "Zero Middleman Fees" },
-  { icon: Heart, label: "Nurse-First Design" },
-];
+export default async function Home() {
+  const featuredJobs = await getFeaturedJobs();
 
-export default function Home() {
   return (
     <div className="min-h-screen">
       <Navbar />
 
       {/* ── HERO ── */}
-      <section className="bg-gradient-to-b from-brand-peach-50 to-brand-warm px-6 py-24 md:py-32">
-        <div className="container mx-auto max-w-4xl text-center">
+      <SectionContainer bg="peach-gradient" className="py-24 md:py-32">
+        <div className="mx-auto max-w-4xl text-center">
           <h1 className="text-4xl font-bold leading-tight text-brand-charcoal md:text-5xl">
-            Know your worth. Find your place.
-            <br className="hidden sm:block" /> Connect directly.
+            The Financial Decision Engine
+            <br className="hidden sm:block" /> for Travel Nurses
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-brand-gray-500">
-            The recruiterless marketplace. Go direct-to-facility and capture the
-            margin that used to go to the middleman.
+            Analyze any contract. See your real take-home. Detect margin risk
+            before you sign.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link
-              href="/signup"
-              className="w-full rounded-lg bg-brand-orange px-8 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-orange-hover sm:w-auto"
-            >
-              I&apos;m a Nurse
-            </Link>
-            <Link
-              href="/signup"
-              className="w-full rounded-lg border-2 border-brand-orange px-8 py-3 text-base font-semibold text-brand-orange transition-colors hover:bg-brand-orange hover:text-white sm:w-auto"
-            >
-              I&apos;m a Facility
-            </Link>
+            <CTAButton href="/analyze">Analyze My Offer</CTAButton>
+            <CTAButton href="/jobs" variant="outline">
+              Find Jobs
+            </CTAButton>
           </div>
+          <TrustSignals />
         </div>
-      </section>
+      </SectionContainer>
 
-      {/* ── VALUE PROP ── */}
-      <section className="bg-brand-mint-50 px-6 py-20 md:py-24">
-        <div className="container mx-auto max-w-5xl">
-          <h2 className="mb-12 text-center text-3xl font-bold text-brand-charcoal">
-            The Transparency Engine
+      {/* ── VALUE PROPOSITION — FLIP CARDS ── */}
+      <SectionContainer bg="white">
+        <h2 className="mb-4 text-center text-3xl font-bold text-brand-charcoal">
+          Know More. Earn More. Own Your Career.
+        </h2>
+        <p className="mx-auto mb-12 max-w-2xl text-center text-brand-gray-500">
+          RNTell gives you the financial intelligence that was hidden behind
+          middlemen.
+        </p>
+        <div className="grid gap-8 md:grid-cols-3">
+          <FlipCard
+            icon={DollarSign}
+            title="Real Take-Home Clarity"
+            subtitle="Know What You Actually Earn"
+            backContent="Net pay after housing, full stipend breakdown, and margin detection — so you know exactly what lands in your account."
+          />
+          <FlipCard
+            icon={Award}
+            title="Federal & Long-Term Value Detection"
+            subtitle="Surface Loan Forgiveness Opportunities"
+            backContent="Automatic PSLF eligibility detection, HRSA HPSA lookup, and a federal strength score for every contract you analyze."
+          />
+          <FlipCard
+            icon={Target}
+            title="Smarter Job Matching"
+            subtitle="Match Based on Fit & Financial Strength"
+            backContent="Smart Match scoring ranks jobs by specialty fit, license alignment, and financial strength — so you see the best opportunities first."
+          />
+        </div>
+      </SectionContainer>
+
+      {/* ── HOW IT WORKS ── */}
+      <SectionContainer bg="warm">
+        <h2 className="mb-12 text-center text-3xl font-bold text-brand-charcoal">
+          How It Works
+        </h2>
+        <HowItWorks />
+      </SectionContainer>
+
+      {/* ── FEATURED JOBS ── */}
+      {featuredJobs.length > 0 && (
+        <SectionContainer bg="white">
+          <h2 className="mb-2 text-center text-3xl font-bold text-brand-charcoal">
+            Featured Assignments
           </h2>
-          <div className="grid gap-8 md:grid-cols-3">
-            {features.map((feature) => (
-              <div
-                key={feature.title}
-                className="flex flex-col items-center rounded-xl bg-white p-8 text-center shadow-sm"
-              >
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-mint-100">
-                  <feature.icon className="h-7 w-7 text-brand-success-dark" />
-                </div>
-                <h3 className="mb-2 text-lg font-semibold text-brand-charcoal">
-                  {feature.title}
-                </h3>
-                <p className="text-sm text-brand-gray-500">
-                  {feature.description}
-                </p>
-              </div>
-            ))}
+          <p className="mx-auto mb-10 max-w-xl text-center text-brand-gray-500">
+            The latest direct-hire and verified opportunities.
+          </p>
+          <div className="flex gap-5 overflow-x-auto pb-4 md:grid md:grid-cols-5 md:overflow-visible">
+            {featuredJobs.map((job) => {
+              const facility = Array.isArray(job.facilities)
+                ? job.facilities[0]
+                : job.facilities;
+              return (
+                <JobCardCompact
+                  key={job.id}
+                  job={{ ...job, facilities: facility ?? null }}
+                />
+              );
+            })}
           </div>
-        </div>
-      </section>
+          <div className="mt-8 text-center">
+            <CTAButton href="/jobs" variant="outline">
+              View All Jobs
+            </CTAButton>
+          </div>
+        </SectionContainer>
+      )}
 
-      {/* ── TRUST & STATS ── */}
-      <section className="bg-brand-warm px-6 py-16 md:py-20">
-        <div className="container mx-auto max-w-4xl">
-          <div className="grid gap-8 sm:grid-cols-3">
-            {stats.map((stat) => (
-              <div key={stat.label} className="flex flex-col items-center text-center">
-                <stat.icon className="mb-3 h-8 w-8 text-brand-orange" />
-                <span className="text-lg font-semibold text-brand-charcoal">
-                  {stat.label}
-                </span>
-              </div>
-            ))}
-          </div>
+      {/* ── BOTTOM CTA ── */}
+      <SectionContainer bg="charcoal" className="py-16 md:py-20">
+        <div className="text-center">
+          <h2 className="mb-6 text-2xl font-bold text-white md:text-3xl">
+            Ready to see what your contract is really worth?
+          </h2>
+          <CTAButton href="/analyze">Analyze My Offer</CTAButton>
         </div>
-      </section>
+      </SectionContainer>
+
+      <Footer />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import AnalyzeClient from "./AnalyzeClient";
+import Footer from "@/components/ui/Footer";
 
 export const metadata: Metadata = {
   title: "Contract Analysis | RNTell",
@@ -24,6 +25,7 @@ export default function AnalyzePage() {
       </header>
 
       <AnalyzeClient />
+      <Footer />
     </div>
   );
 }

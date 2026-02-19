@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getJobById } from "@/app/actions/jobs";
 import { createClient } from "@/utils/supabase/server";
 import { JobDetailClient } from "./JobDetailClient";
+import Footer from "@/components/ui/Footer";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -42,5 +43,10 @@ export default async function JobDetailPage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return <JobDetailClient job={job} isLoggedIn={!!user} />;
+  return (
+    <>
+      <JobDetailClient job={job} isLoggedIn={!!user} />
+      <Footer />
+    </>
+  );
 }
