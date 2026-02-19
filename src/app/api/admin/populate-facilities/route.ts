@@ -12,7 +12,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createClient as createServerClient } from "@/utils/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,17 +106,17 @@ function parseZip(address: string): string {
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
-  // 1. Auth check — admin only
-  const supabase = await createClient();
+  // 1. Auth check — admin only (cookie-based client)
+  const authClient = await createServerClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await authClient.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await authClient
     .from("profiles")
     .select("role")
     .eq("id", user.id)
@@ -124,6 +125,12 @@ export async function POST(request: NextRequest) {
   if (profile?.role !== "admin") {
     return NextResponse.json({ error: "Admin only" }, { status: 403 });
   }
+
+  // Service role client for DB writes (bypasses RLS)
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   // 2. Validate input
   const GOOGLE_API_KEY = process.env.GOOGLE_PLACES_API_KEY ?? "";
