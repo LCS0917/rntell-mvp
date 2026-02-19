@@ -5,14 +5,21 @@ import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { claimAnalyses } from "@/app/actions/claimAnalysis";
-import { FileText } from "lucide-react";
+import { FileText, Briefcase } from "lucide-react";
 
 interface AuthFormProps {
   mode: "login" | "signup";
   fromAnalyze?: boolean;
+  fromJobs?: boolean;
+  jobId?: string;
 }
 
-export default function AuthForm({ mode, fromAnalyze }: AuthFormProps) {
+export default function AuthForm({
+  mode,
+  fromAnalyze,
+  fromJobs,
+  jobId,
+}: AuthFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -61,9 +68,27 @@ export default function AuthForm({ mode, fromAnalyze }: AuthFormProps) {
       await claimAnalyses();
     }
 
-    router.push("/dashboard");
+    // Redirect back to job listing if coming from jobs flow
+    if (fromJobs && jobId) {
+      router.push(`/jobs/${jobId}`);
+    } else {
+      router.push("/dashboard");
+    }
     router.refresh();
   };
+
+  // Build cross-link search params preserving flow context
+  function crossLinkHref(targetMode: "login" | "signup"): string {
+    const base = targetMode === "login" ? "/login" : "/signup";
+    const params = new URLSearchParams();
+    if (fromAnalyze) params.set("from", "analyze");
+    if (fromJobs) {
+      params.set("from", "jobs");
+      if (jobId) params.set("job_id", jobId);
+    }
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-6">
@@ -76,6 +101,18 @@ export default function AuthForm({ mode, fromAnalyze }: AuthFormProps) {
             {mode === "signup"
               ? "Create your free account to unlock negotiation levers and smart job matching for your offer."
               : "Sign in to unlock negotiation levers and smart job matching for your offer."}
+          </p>
+        </div>
+      )}
+
+      {/* Contextual banner when coming from /jobs */}
+      {fromJobs && (
+        <div className="flex items-start gap-3 rounded-lg border border-brand-orange/30 bg-brand-peach-50 p-4">
+          <Briefcase className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-orange" />
+          <p className="text-sm text-brand-charcoal">
+            {mode === "signup"
+              ? "Create a free account to apply directly to this position."
+              : "Sign in to apply directly to this position."}
           </p>
         </div>
       )}
@@ -178,7 +215,7 @@ export default function AuthForm({ mode, fromAnalyze }: AuthFormProps) {
           <>
             Don&apos;t have an account?{" "}
             <Link
-              href={fromAnalyze ? "/signup?from=analyze" : "/signup"}
+              href={crossLinkHref("signup")}
               className="font-medium text-brand-orange hover:text-brand-orange-hover"
             >
               Sign Up
@@ -188,7 +225,7 @@ export default function AuthForm({ mode, fromAnalyze }: AuthFormProps) {
           <>
             Already have an account?{" "}
             <Link
-              href={fromAnalyze ? "/login?from=analyze" : "/login"}
+              href={crossLinkHref("login")}
               className="font-medium text-brand-orange hover:text-brand-orange-hover"
             >
               Sign In

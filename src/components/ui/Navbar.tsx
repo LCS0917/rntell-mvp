@@ -8,8 +8,20 @@ export default function Navbar() {
         RNTell
       </Link>
 
-      {/* Actions */}
-      <div className="flex items-center gap-3">
+      {/* Nav links + actions */}
+      <div className="flex items-center gap-4">
+        <Link
+          href="/jobs"
+          className="text-sm font-medium text-brand-charcoal hover:text-brand-orange"
+        >
+          Find Jobs
+        </Link>
+        <Link
+          href="/analyze"
+          className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
+        >
+          Analyze an Offer
+        </Link>
         <Link
           href="/login"
           className="rounded-lg px-4 py-2 text-sm font-medium text-brand-charcoal transition-colors hover:bg-brand-gray-100"

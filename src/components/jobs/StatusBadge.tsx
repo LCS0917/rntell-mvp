@@ -15,14 +15,16 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  submitted: "bg-brand-gray-100 text-brand-charcoal",
-  reviewing: "bg-brand-mint-50 text-brand-success-dark",
-  interview: "bg-brand-peach-100/40 text-brand-orange",
-  offered: "bg-brand-green-light text-brand-success-dark",
-  accepted: "bg-brand-green-light text-brand-success-dark",
-  rejected: "bg-brand-danger-light text-brand-danger",
+  submitted: "bg-blue-50 text-blue-700",
+  reviewing: "bg-amber-50 text-amber-700",
+  interview: "bg-purple-50 text-purple-700",
+  offered: "bg-green-50 text-green-700",
+  accepted: "bg-green-100 text-green-800 font-bold",
+  rejected: "bg-brand-gray-100 text-brand-gray-500",
   withdrawn: "bg-brand-gray-100 text-brand-gray-500",
 };
+
+export { STATUS_COLORS, STATUS_LABELS };
 
 export function StatusBadge({
   status,

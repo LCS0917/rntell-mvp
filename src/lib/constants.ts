@@ -20,9 +20,19 @@ export const SPECIALTIES = [
   "OR",
   "Tele",
   "PCU",
+  "PACU",
+  "Stepdown",
+  "Psych",
+  "Rehab",
 ] as const;
 
 export type Specialty = (typeof SPECIALTIES)[number];
+
+/** All specialties for the public job board filter (includes "Other"). */
+export const JOB_BOARD_SPECIALTIES = [
+  ...SPECIALTIES,
+  "Other",
+] as const;
 
 /** Default base hourly rates by specialty (used when no reported data exists). */
 export const DEFAULT_HOURLY_RATES: Record<Specialty, number> = {
@@ -34,7 +44,34 @@ export const DEFAULT_HOURLY_RATES: Record<Specialty, number> = {
   OR: 53,
   Tele: 47,
   PCU: 48,
+  PACU: 52,
+  Stepdown: 48,
+  Psych: 44,
+  Rehab: 43,
 };
+
+/** Contract length options for job board filter. */
+export const CONTRACT_LENGTH_OPTIONS = [
+  { value: "8", label: "8 weeks" },
+  { value: "13", label: "13 weeks" },
+  { value: "26", label: "26 weeks" },
+  { value: "", label: "Any" },
+] as const;
+
+/** Start date window options. */
+export const START_DATE_OPTIONS = [
+  { value: "asap", label: "ASAP" },
+  { value: "30", label: "Within 30 days" },
+  { value: "60", label: "Within 60 days" },
+  { value: "", label: "Any" },
+] as const;
+
+/** Sort options for job board. */
+export const JOB_SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "highest_pay", label: "Highest Pay" },
+  { value: "soonest_start", label: "Soonest Start" },
+] as const;
 
 /** US states for dropdowns. */
 export const STATES = [
@@ -93,3 +130,21 @@ export const STATES = [
 
 /** Shift types for contract analysis. */
 export const SHIFT_TYPES = ["Day", "Night", "Rotating", "PRN"] as const;
+
+/** Shift type DB enum values → display labels. DB stores lowercase. */
+export const SHIFT_TYPE_OPTIONS = [
+  { value: "day", label: "Day" },
+  { value: "night", label: "Night" },
+  { value: "rotating", label: "Rotating" },
+  { value: "prn", label: "PRN" },
+] as const;
+
+/** Map DB shift_type enum to display label. */
+export const SHIFT_LABELS: Record<string, string> = {
+  day: "Day",
+  night: "Night",
+  rotating: "Rotating",
+  prn: "PRN",
+  travel: "Travel",
+  per_diem: "Per Diem",
+};

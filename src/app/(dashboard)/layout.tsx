@@ -11,6 +11,7 @@ import {
   Inbox,
   BarChart3,
   ClipboardList,
+  ClipboardCheck,
 } from "lucide-react";
 
 async function signOut() {
@@ -100,8 +101,8 @@ export default async function DashboardLayout({
                 href="/nurse/jobs"
                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
               >
-                <Briefcase size={16} />
-                Direct-Hire Jobs
+                <ClipboardCheck size={16} />
+                My Applications
               </Link>
               <Link
                 href="/nurse/credentials"
@@ -128,11 +129,11 @@ export default async function DashboardLayout({
                 My Job Postings
               </Link>
               <Link
-                href="/facility/candidates"
+                href="/facility/applications"
                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
               >
                 <Inbox size={16} />
-                Talent Pipeline
+                Applications
               </Link>
             </>
           )}

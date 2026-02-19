@@ -47,7 +47,10 @@ export default async function FacilityDashboardPage() {
 
       {/* Stats Row */}
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-brand-gray-200 bg-white p-5">
+        <Link
+          href="/facility/applications?status=submitted"
+          className="rounded-xl border border-brand-gray-200 bg-white p-5 transition-shadow hover:shadow-md"
+        >
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-peach-50">
               <Inbox size={20} className="text-brand-orange" />
@@ -57,7 +60,7 @@ export default async function FacilityDashboardPage() {
               <p className="text-xs text-brand-gray-500">New Applications</p>
             </div>
           </div>
-        </div>
+        </Link>
         <div className="rounded-xl border border-brand-gray-200 bg-white p-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-mint-50">
@@ -90,7 +93,7 @@ export default async function FacilityDashboardPage() {
       </h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
-          href="/facility/candidates"
+          href="/facility/applications"
           className="group flex items-start gap-4 rounded-xl border border-brand-gray-200 bg-white p-5 transition-shadow hover:shadow-md"
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-peach-50">
