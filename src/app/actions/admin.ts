@@ -403,7 +403,7 @@ export async function getJobs(filters?: {
     .from("job_postings")
     .select(
       `id, title, specialty, pay_rate_hourly, stipend_housing, stipend_meals,
-       data_source, is_active, start_date, created_at, contract_weeks, description,
+       data_source, is_active, is_featured, start_date, created_at, contract_weeks, description,
        facility_id, facilities!inner(name, location_city, location_state)`
     );
 
@@ -475,8 +475,20 @@ export async function getJobs(filters?: {
       contract_weeks: j.contract_weeks,
       start_date: j.start_date,
       description: (j as unknown as { description: string | null }).description,
+      is_featured: (j as unknown as { is_featured: boolean }).is_featured,
     };
   });
+}
+
+export async function toggleJobFeatured(jobId: string, isFeatured: boolean) {
+  await requireAdmin();
+  const db = createAdminClient();
+  const { error } = await db
+    .from("job_postings")
+    .update({ is_featured: isFeatured })
+    .eq("id", jobId);
+  if (error) throw error;
+  return { success: true };
 }
 
 export async function toggleJobActive(jobId: string, isActive: boolean) {

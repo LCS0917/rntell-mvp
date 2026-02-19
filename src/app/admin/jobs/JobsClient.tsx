@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { toggleJobActive, deleteJob, createJob, updateJob } from "@/app/actions/admin";
-import { Search, X, Trash2, Plus, Pencil } from "lucide-react";
+import { toggleJobActive, toggleJobFeatured, deleteJob, createJob, updateJob } from "@/app/actions/admin";
+import { Search, X, Trash2, Plus, Pencil, Star } from "lucide-react";
 
 type Facility = {
   id: string;
@@ -30,6 +30,7 @@ type Job = {
   contract_weeks: number | null;
   start_date: string | null;
   description: string | null;
+  is_featured: boolean;
 };
 
 function formatCurrency(amount: number) {
@@ -112,6 +113,14 @@ export default function JobsClient({
     startTransition(async () => {
       await toggleJobActive(job.id, !job.is_active);
       if (editJob?.id === job.id) setEditJob({ ...editJob, is_active: !job.is_active });
+      router.refresh();
+    });
+  }
+
+  function handleToggleFeatured(job: Job) {
+    startTransition(async () => {
+      await toggleJobFeatured(job.id, !job.is_featured);
+      if (editJob?.id === job.id) setEditJob({ ...editJob, is_featured: !job.is_featured });
       router.refresh();
     });
   }
@@ -226,17 +235,31 @@ export default function JobsClient({
           onClose={() => setEditJob(null)}
           footer={
             <div className="flex items-center justify-between border-t border-brand-gray-200 pt-4">
-              <button
-                onClick={() => handleToggleActive(editJob)}
-                disabled={isPending}
-                className={`rounded-lg px-3 py-2 text-sm font-medium text-white disabled:opacity-50 ${
-                  editJob.is_active
-                    ? "bg-brand-gray-500 hover:bg-brand-gray-400"
-                    : "bg-brand-success hover:opacity-90"
-                }`}
-              >
-                {editJob.is_active ? "Deactivate" : "Activate"}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleToggleActive(editJob)}
+                  disabled={isPending}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium text-white disabled:opacity-50 ${
+                    editJob.is_active
+                      ? "bg-brand-gray-500 hover:bg-brand-gray-400"
+                      : "bg-brand-success hover:opacity-90"
+                  }`}
+                >
+                  {editJob.is_active ? "Deactivate" : "Activate"}
+                </button>
+                <button
+                  onClick={() => handleToggleFeatured(editJob)}
+                  disabled={isPending}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50 ${
+                    editJob.is_featured
+                      ? "bg-amber-400 text-white hover:bg-amber-500"
+                      : "border border-amber-400 text-amber-600 hover:bg-amber-50"
+                  }`}
+                >
+                  <Star size={14} fill={editJob.is_featured ? "currentColor" : "none"} />
+                  {editJob.is_featured ? "Featured" : "Set Featured"}
+                </button>
+              </div>
               {!confirmDelete ? (
                 <button
                   onClick={() => setConfirmDelete(true)}
@@ -344,6 +367,7 @@ export default function JobsClient({
               <th className="px-4 py-3 font-medium text-brand-gray-500">Weekly Pkg</th>
               <th className="px-4 py-3 font-medium text-brand-gray-500">Source</th>
               <th className="px-4 py-3 font-medium text-brand-gray-500">Active</th>
+              <th className="px-2 py-3 font-medium text-amber-500" title="Featured on homepage"><Star size={14} className="inline" /></th>
               <th className="px-4 py-3 font-medium text-brand-gray-500"># Apps</th>
               <th className="px-4 py-3 font-medium text-brand-gray-500">Posted</th>
               <th className="px-4 py-3 font-medium text-brand-gray-500"></th>
@@ -352,7 +376,7 @@ export default function JobsClient({
           <tbody>
             {jobs.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-brand-gray-400">
+                <td colSpan={12} className="px-4 py-8 text-center text-brand-gray-400">
                   No job listings found.
                 </td>
               </tr>
@@ -381,6 +405,9 @@ export default function JobsClient({
                     >
                       {j.is_active ? "Active" : "Inactive"}
                     </span>
+                  </td>
+                  <td className="px-2 py-3 text-center">
+                    {j.is_featured && <Star size={14} className="inline text-amber-400" fill="currentColor" />}
                   </td>
                   <td className="px-4 py-3 text-center">{j.applications_count}</td>
                   <td className="px-4 py-3 text-brand-gray-500">

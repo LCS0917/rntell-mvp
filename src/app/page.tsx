@@ -17,6 +17,7 @@ async function getFeaturedJobs() {
       "id, title, specialty, shift_type, pay_package_total, facilities(id, name, location_city, location_state)"
     )
     .eq("is_active", true)
+    .eq("is_featured", true)
     .order("created_at", { ascending: false })
     .limit(3);
   return data ?? [];
