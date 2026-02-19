@@ -854,7 +854,7 @@ export async function getScrapeJobs(): Promise<ScrapeJobRecord[]> {
     .limit(50);
 
   if (error) throw error;
-  return (data as ScrapeJobRecord[]) || [];
+  return (data as unknown as ScrapeJobRecord[]) || [];
 }
 
 /**
