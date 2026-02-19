@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, Play, RefreshCw, CheckCircle, XCircle, Loader2, Clock, AlertCircle } from "lucide-react";
+import { Bot, Play, RefreshCw, CheckCircle, XCircle, Loader2, Clock, AlertCircle, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { triggerScraper, type ScrapeJobRecord } from "@/app/actions/admin";
 
 const SOURCE_TYPES = [
@@ -30,6 +30,46 @@ export default function ScraperClient({
   const [state, setState] = useState("");
   const [runError, setRunError] = useState<string | null>(null);
   const [runSuccess, setRunSuccess] = useState<string | null>(null);
+
+  // Discover jobs state
+  const [showDiscover, setShowDiscover] = useState(true);
+  const [discoverState, setDiscoverState] = useState("");
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverResult, setDiscoverResult] = useState<{
+    facilities_scanned: number;
+    ats_detected: number;
+    jobs_created: number;
+    jobs_updated: number;
+    jobs_skipped: number;
+    errors: { facility: string; message: string }[];
+  } | null>(null);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
+
+  async function handleDiscover() {
+    setDiscoverLoading(true);
+    setDiscoverError(null);
+    setDiscoverResult(null);
+    try {
+      const body: Record<string, unknown> = {};
+      if (discoverState) body.state = discoverState;
+      const res = await fetch("/api/admin/scrape-jobs/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setDiscoverResult(data);
+      router.refresh();
+    } catch (e) {
+      setDiscoverError(e instanceof Error ? e.message : "Failed to discover jobs.");
+    } finally {
+      setDiscoverLoading(false);
+    }
+  }
 
   function handleRun() {
     setRunError(null);
@@ -59,9 +99,94 @@ export default function ScraperClient({
         </div>
       )}
 
-      {/* Trigger panel */}
+      {/* Discover Jobs panel */}
+      <div className="rounded-xl border border-brand-gray-200 bg-white">
+        <button
+          onClick={() => setShowDiscover(!showDiscover)}
+          className="flex w-full items-center justify-between px-6 py-4 text-left"
+        >
+          <div>
+            <h2 className="text-base font-semibold text-brand-charcoal">Discover Jobs from Facility Websites</h2>
+            <p className="mt-0.5 text-xs text-brand-gray-400">
+              Scans facility websites, detects ATS (Workday, Greenhouse, Lever, iCIMS, SmartRecruiters), and pulls nursing job metadata.
+            </p>
+          </div>
+          {showDiscover ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+
+        {showDiscover && (
+          <div className="border-t border-brand-gray-200 px-6 py-4">
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-brand-gray-500">State (optional)</label>
+                <select
+                  value={discoverState}
+                  onChange={(e) => setDiscoverState(e.target.value)}
+                  className="rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+                >
+                  <option value="">All States</option>
+                  {US_STATES.filter(Boolean).map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={handleDiscover}
+                disabled={discoverLoading}
+                className="flex items-center gap-2 rounded-lg bg-brand-orange px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {discoverLoading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Search size={16} />
+                )}
+                {discoverLoading ? "Scanning…" : "Discover Jobs"}
+              </button>
+            </div>
+
+            {discoverResult && (
+              <div className="mt-4 space-y-2">
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <span className="text-brand-gray-500">
+                    Scanned: <strong className="text-brand-charcoal">{discoverResult.facilities_scanned}</strong> facilities
+                  </span>
+                  <span className="text-brand-gray-500">
+                    ATS found: <strong className="text-brand-charcoal">{discoverResult.ats_detected}</strong>
+                  </span>
+                  <span className="text-green-600">
+                    Jobs created: <strong>{discoverResult.jobs_created}</strong>
+                  </span>
+                  <span className="text-blue-600">
+                    Updated: <strong>{discoverResult.jobs_updated}</strong>
+                  </span>
+                  <span className="text-brand-gray-400">
+                    Skipped: <strong>{discoverResult.jobs_skipped}</strong>
+                  </span>
+                </div>
+                {discoverResult.errors.length > 0 && (
+                  <div className="rounded-lg bg-red-50 px-4 py-2 text-xs text-red-700">
+                    <strong>{discoverResult.errors.length} errors:</strong>
+                    <ul className="mt-1 list-disc pl-4">
+                      {discoverResult.errors.slice(0, 5).map((e, i) => (
+                        <li key={i}>{e.facility}: {e.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {discoverError && (
+              <p className="mt-3 text-sm text-red-600">{discoverError}</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Trigger panel (legacy Python scraper) */}
       <div className="rounded-xl border border-brand-gray-200 bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-brand-charcoal">Run a Scraper</h2>
+        <h2 className="mb-4 text-base font-semibold text-brand-charcoal">Run a Scraper (Legacy)</h2>
 
         <div className="flex flex-wrap items-end gap-4">
           {/* Source type */}
