@@ -117,14 +117,8 @@ export function JobCard({
             )}
           </div>
 
-          {/* Action buttons */}
+          {/* Action button — single CTA */}
           <div className="flex items-center gap-2">
-            <Link
-              href={`/jobs/${job.id}`}
-              className="rounded-lg border border-brand-gray-200 px-3 py-1.5 text-sm font-medium text-brand-charcoal transition-colors hover:bg-brand-gray-100"
-            >
-              View Details
-            </Link>
             {isLoggedIn ? (
               job.has_applied ? (
                 <span className="rounded-xl bg-brand-green-light px-3 py-1.5 text-sm font-medium text-brand-success-dark">
@@ -132,7 +126,7 @@ export function JobCard({
                 </span>
               ) : (
                 <Link
-                  href={`/jobs/${job.id}#apply`}
+                  href={`/jobs/${job.id}`}
                   className="rounded-xl bg-orange-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-orange-600"
                 >
                   Apply
@@ -140,7 +134,7 @@ export function JobCard({
               )
             ) : (
               <Link
-                href={`/signup?from=jobs&job_id=${job.id}`}
+                href={`/jobs/${job.id}`}
                 className="rounded-xl bg-orange-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-orange-600"
               >
                 Apply

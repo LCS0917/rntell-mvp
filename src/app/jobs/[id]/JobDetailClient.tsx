@@ -310,22 +310,41 @@ export function JobDetailClient({
                 </p>
               )}
 
-              {/* Apply button */}
+              {/* Apply button — logic depends on claimed status */}
               <div id="apply" className="mt-4">
-                {isLoggedIn ? (
-                  <button
-                    onClick={() => setShowApplyModal(true)}
-                    className="w-full rounded-xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
-                  >
-                    {job.has_applied ? "View Application" : "Apply Directly"}
-                  </button>
+                {job.facilities?.is_claimed ? (
+                  // Claimed facility → in-platform application flow
+                  isLoggedIn ? (
+                    <button
+                      onClick={() => setShowApplyModal(true)}
+                      className="w-full rounded-xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+                    >
+                      {job.has_applied ? "View Application" : "Apply Directly"}
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/signup?from=jobs&job_id=${job.id}`}
+                      className="block w-full rounded-xl bg-orange-500 px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+                    >
+                      Apply Directly
+                    </Link>
+                  )
                 ) : (
-                  <Link
-                    href={`/signup?from=jobs&job_id=${job.id}`}
-                    className="block w-full rounded-xl bg-orange-500 px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-orange-600"
-                  >
-                    Apply Directly
-                  </Link>
+                  // Unclaimed / sourced listing → link out to original source
+                  job.source_url ? (
+                    <a
+                      href={job.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full rounded-xl bg-orange-500 px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+                    >
+                      Apply on Hospital Site
+                    </a>
+                  ) : (
+                    <p className="text-center text-sm text-brand-gray-400">
+                      Application link not available
+                    </p>
+                  )
                 )}
               </div>
 
@@ -372,21 +391,32 @@ export function JobDetailClient({
               <span className="text-xs font-normal text-[#666666]">/wk</span>
             </p>
           )}
-          {isLoggedIn ? (
-            <button
-              onClick={() => setShowApplyModal(true)}
+          {job.facilities?.is_claimed ? (
+            isLoggedIn ? (
+              <button
+                onClick={() => setShowApplyModal(true)}
+                className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+              >
+                {job.has_applied ? "View Application" : "Apply Directly"}
+              </button>
+            ) : (
+              <Link
+                href={`/signup?from=jobs&job_id=${job.id}`}
+                className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+              >
+                Apply Directly
+              </Link>
+            )
+          ) : job.source_url ? (
+            <a
+              href={job.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
               className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
             >
-              {job.has_applied ? "View Application" : "Apply Directly"}
-            </button>
-          ) : (
-            <Link
-              href={`/signup?from=jobs&job_id=${job.id}`}
-              className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
-            >
-              Apply Directly
-            </Link>
-          )}
+              Apply on Hospital Site
+            </a>
+          ) : null}
         </div>
       </div>
 

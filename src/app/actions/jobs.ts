@@ -52,6 +52,7 @@ export type JobDetail = PublicJobPosting & {
   travel_reimbursement: number | null;
   facility_reviews_avg?: number;
   facility_review_count?: number;
+  source_url?: string | null;
 };
 
 // Legacy alias used by existing dashboard nurse/jobs page
@@ -399,7 +400,7 @@ export async function getJobById(
       stipend_housing, stipend_meals, travel_reimbursement,
       contract_weeks, start_date,
       requirements, description,
-      is_active, slots_available, data_source, created_at,
+      is_active, slots_available, data_source, source_url, created_at,
       facilities (
         id, name, location_city, location_state, is_claimed
       )

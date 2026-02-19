@@ -9,6 +9,7 @@ type Facility = {
   id: string;
   name: string;
   location_state: string | null;
+  is_claimed: boolean;
 };
 
 type Job = {
@@ -51,7 +52,8 @@ const EMPTY_FORM = {
   contract_weeks: "",
   start_date: "",
   description: "",
-  data_source: "direct",
+  data_source: "self_reported",
+  source_url: "",
 };
 
 type FormState = typeof EMPTY_FORM;
@@ -68,6 +70,7 @@ function jobToForm(j: Job): FormState {
     start_date: j.start_date ?? "",
     description: j.description ?? "",
     data_source: j.data_source,
+    source_url: "",
   };
 }
 
@@ -143,7 +146,8 @@ export default function JobsClient({
           contract_weeks: createForm.contract_weeks ? Number(createForm.contract_weeks) : undefined,
           start_date: createForm.start_date || undefined,
           description: createForm.description || undefined,
-          data_source: createForm.data_source || "direct",
+          data_source: createForm.data_source || "self_reported",
+          source_url: createForm.source_url || undefined,
         });
         setCreateForm(EMPTY_FORM);
         setShowCreate(false);
@@ -481,12 +485,24 @@ function JobFormModal({
               className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
             >
               <option value="">Select facility…</option>
-              {facilities.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}{f.location_state ? ` (${f.location_state})` : ""}
-                </option>
-              ))}
+              <optgroup label="✅ Claimed">
+                {facilities.filter((f) => f.is_claimed).map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}{f.location_state ? ` (${f.location_state})` : ""}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="⬜ Unclaimed">
+                {facilities.filter((f) => !f.is_claimed).map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}{f.location_state ? ` (${f.location_state})` : ""}
+                  </option>
+                ))}
+              </optgroup>
             </select>
+            <p className="mt-1 text-xs text-brand-gray-400">
+              Unclaimed facilities redirect nurses to the source URL. Claimed facilities use the in-platform apply flow.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -572,11 +588,24 @@ function JobFormModal({
                 onChange={(e) => field("data_source", e.target.value)}
                 className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
               >
-                <option value="direct">Direct</option>
+                <option value="self_reported">Self-Reported</option>
                 <option value="scraped">Scraped</option>
                 <option value="imported">Imported</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-brand-gray-500">
+              Source URL <span className="font-normal text-brand-gray-400">(required for unclaimed facilities)</span>
+            </label>
+            <input
+              type="url"
+              value={form.source_url}
+              onChange={(e) => field("source_url", e.target.value)}
+              placeholder="https://hospital.org/careers/job/123"
+              className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+            />
           </div>
 
           <div>

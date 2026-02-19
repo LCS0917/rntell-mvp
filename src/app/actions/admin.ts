@@ -710,6 +710,7 @@ export async function createJob(data: {
   start_date?: string;
   description?: string;
   data_source?: string;
+  source_url?: string;
 }) {
   await requireAdmin();
   const db = createAdminClient();
@@ -724,7 +725,8 @@ export async function createJob(data: {
     contract_weeks: data.contract_weeks || null,
     start_date: data.start_date || null,
     description: data.description || null,
-    data_source: data.data_source || "direct",
+    data_source: data.data_source || "self_reported",
+    source_url: data.source_url || null,
     is_active: true,
   });
   if (error) throw error;
@@ -800,7 +802,7 @@ export async function getFacilityList() {
   const db = createAdminClient();
   const { data, error } = await db
     .from("facilities")
-    .select("id, name, location_state")
+    .select("id, name, location_state, is_claimed")
     .order("name");
   if (error) throw error;
   return data || [];
