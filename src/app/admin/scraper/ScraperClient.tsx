@@ -2,12 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, Play, RefreshCw, CheckCircle, XCircle, Loader2, Clock, AlertCircle, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { Bot, Play, RefreshCw, CheckCircle, XCircle, Loader2, Clock, AlertCircle, Search, ChevronDown, ChevronUp, Download } from "lucide-react";
 import { triggerScraper, type ScrapeJobRecord } from "@/app/actions/admin";
-
-const SOURCE_TYPES = [
-  { value: "hospital_careers", label: "Hospital Career Pages" },
-];
 
 const US_STATES = [
   "", "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN",
@@ -21,6 +17,15 @@ interface DetectResult {
   careers_found: number;
   ats_breakdown: Record<string, number>;
   details: { name: string; website: string; careers_url: string | null; ats_type: string }[];
+  errors: { facility: string; message: string }[];
+}
+
+interface ScrapeResult {
+  facilities_processed: number;
+  jobs_created: number;
+  jobs_updated: number;
+  jobs_skipped: number;
+  details: { name: string; ats_type: string; jobs_found: number }[];
   errors: { facility: string; message: string }[];
 }
 
@@ -47,6 +52,14 @@ export default function ScraperClient({
   const [detectError, setDetectError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
+  // Scrape jobs state
+  const [showScrape, setShowScrape] = useState(true);
+  const [scrapeState, setScrapeState] = useState("");
+  const [scrapeLoading, setScrapeLoading] = useState(false);
+  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
+  const [showScrapeDetails, setShowScrapeDetails] = useState(false);
+
   async function handleDetect() {
     setDetectLoading(true);
     setDetectError(null);
@@ -70,6 +83,32 @@ export default function ScraperClient({
       setDetectError(e instanceof Error ? e.message : "Failed to detect career pages.");
     } finally {
       setDetectLoading(false);
+    }
+  }
+
+  async function handleScrape() {
+    setScrapeLoading(true);
+    setScrapeError(null);
+    setScrapeResult(null);
+    try {
+      const body: Record<string, unknown> = {};
+      if (scrapeState) body.state = scrapeState;
+      const res = await fetch("/api/admin/scrape-jobs/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setScrapeResult(data);
+      router.refresh();
+    } catch (e) {
+      setScrapeError(e instanceof Error ? e.message : "Failed to scrape jobs.");
+    } finally {
+      setScrapeLoading(false);
     }
   }
 
@@ -253,85 +292,127 @@ export default function ScraperClient({
         )}
       </div>
 
-      {/* Step 2: Scrape Jobs (coming soon / legacy) */}
-      <div className="rounded-xl border border-brand-gray-200 bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-brand-charcoal">Step 2: Scrape Jobs from ATS (Coming Soon)</h2>
-        <p className="text-xs text-brand-gray-400 mb-4">
-          Once career pages are detected above, this step will pull structured job data from known ATS systems (Workday, Greenhouse, Lever, etc.).
-        </p>
-
-        <h3 className="mb-3 text-sm font-medium text-brand-gray-500">Legacy Scraper</h3>
-        <div className="flex flex-wrap items-end gap-4">
-          {/* Source type */}
+      {/* Step 2: Scrape Jobs from ATS */}
+      <div className="rounded-xl border border-brand-gray-200 bg-white">
+        <button
+          onClick={() => setShowScrape(!showScrape)}
+          className="flex w-full items-center justify-between px-6 py-4 text-left"
+        >
           <div>
-            <label className="mb-1 block text-xs font-medium text-brand-gray-500">Source Type</label>
-            <select
-              value={sourceType}
-              onChange={(e) => setSourceType(e.target.value)}
-              className="rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
-            >
-              {SOURCE_TYPES.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
+            <h2 className="text-base font-semibold text-brand-charcoal">
+              Step 2: Scrape Jobs from ATS
+            </h2>
+            <p className="mt-0.5 text-xs text-brand-gray-400">
+              Pulls up to 5 recent contract/travel nurse jobs from each facility with a known ATS (Workday, Greenhouse, Lever, Avature, Taleo, etc.).
+            </p>
           </div>
+          {showScrape ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
 
-          {/* State filter */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-brand-gray-500">State (optional)</label>
-            <select
-              value={state}
-              onChange={(e) => setState(e.target.value)}
-              className="rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
-            >
-              <option value="">All States</option>
-              {US_STATES.filter(Boolean).map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
+        {showScrape && (
+          <div className="border-t border-brand-gray-200 px-6 py-4">
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-brand-gray-500">State (optional)</label>
+                <select
+                  value={scrapeState}
+                  onChange={(e) => setScrapeState(e.target.value)}
+                  className="rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+                >
+                  <option value="">All States</option>
+                  {US_STATES.filter(Boolean).map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
 
-          {/* Run button */}
-          <button
-            onClick={handleRun}
-            disabled={isPending}
-            className="flex items-center gap-2 rounded-lg bg-brand-orange px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-          >
-            {isPending ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Play size={16} />
+              <button
+                onClick={handleScrape}
+                disabled={scrapeLoading}
+                className="flex items-center gap-2 rounded-lg bg-brand-orange px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {scrapeLoading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Download size={16} />
+                )}
+                {scrapeLoading ? "Scraping…" : "Scrape Jobs"}
+              </button>
+            </div>
+
+            {scrapeResult && (
+              <div className="mt-4 space-y-3">
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <span className="text-brand-gray-500">
+                    Facilities: <strong className="text-brand-charcoal">{scrapeResult.facilities_processed}</strong>
+                  </span>
+                  <span className="text-green-600">
+                    Jobs created: <strong>{scrapeResult.jobs_created}</strong>
+                  </span>
+                  <span className="text-blue-600">
+                    Updated: <strong>{scrapeResult.jobs_updated}</strong>
+                  </span>
+                  <span className="text-brand-gray-400">
+                    Skipped: <strong>{scrapeResult.jobs_skipped}</strong>
+                  </span>
+                </div>
+
+                {scrapeResult.details.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setShowScrapeDetails(!showScrapeDetails)}
+                      className="text-xs text-brand-orange hover:underline"
+                    >
+                      {showScrapeDetails ? "Hide details" : "Show per-facility breakdown"}
+                    </button>
+
+                    {showScrapeDetails && (
+                      <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-brand-gray-200">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-brand-gray-200 bg-brand-gray-100">
+                              <th className="px-3 py-2 font-medium text-brand-gray-500">Facility</th>
+                              <th className="px-3 py-2 font-medium text-brand-gray-500">ATS</th>
+                              <th className="px-3 py-2 font-medium text-brand-gray-500 text-right">Jobs Found</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {scrapeResult.details.map((d, i) => (
+                              <tr key={i} className="border-b border-brand-gray-200 hover:bg-brand-gray-50">
+                                <td className="px-3 py-1.5 text-brand-charcoal">{d.name}</td>
+                                <td className="px-3 py-1.5">
+                                  <span className="inline-block rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+                                    {d.ats_type}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-1.5 text-right font-medium text-brand-charcoal">{d.jobs_found}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {scrapeResult.errors.length > 0 && (
+                  <div className="rounded-lg bg-red-50 px-4 py-2 text-xs text-red-700">
+                    <strong>{scrapeResult.errors.length} errors:</strong>
+                    <ul className="mt-1 list-disc pl-4">
+                      {scrapeResult.errors.slice(0, 5).map((e, i) => (
+                        <li key={i}>{e.facility}: {e.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
-            {isPending ? "Starting…" : "Run Scraper"}
-          </button>
 
-          {/* Refresh */}
-          <button
-            onClick={() => router.refresh()}
-            className="flex items-center gap-2 rounded-lg border border-brand-gray-200 px-4 py-2 text-sm text-brand-gray-500 hover:bg-brand-gray-100"
-          >
-            <RefreshCw size={14} />
-            Refresh
-          </button>
-        </div>
-
-        {runSuccess && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
-            <CheckCircle size={16} />
-            {runSuccess}
+            {scrapeError && (
+              <p className="mt-3 text-sm text-red-600">{scrapeError}</p>
+            )}
           </div>
         )}
-        {runError && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-            <AlertCircle size={16} />
-            {runError}
-          </div>
-        )}
-
-        <p className="mt-4 text-xs text-brand-gray-400">
-          Scraper runs asynchronously. Refresh this page to see updated status.
-          Jobs not seen after 7 days are automatically marked inactive.
-        </p>
       </div>
 
       {/* Run history */}
