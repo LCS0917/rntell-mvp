@@ -16,6 +16,14 @@ const US_STATES = [
   "VT","VA","WA","WV","WI","WY",
 ];
 
+interface DetectResult {
+  facilities_scanned: number;
+  careers_found: number;
+  ats_breakdown: Record<string, number>;
+  details: { name: string; website: string; careers_url: string | null; ats_type: string }[];
+  errors: { facility: string; message: string }[];
+}
+
 export default function ScraperClient({
   jobs,
   initError,
@@ -31,27 +39,21 @@ export default function ScraperClient({
   const [runError, setRunError] = useState<string | null>(null);
   const [runSuccess, setRunSuccess] = useState<string | null>(null);
 
-  // Discover jobs state
-  const [showDiscover, setShowDiscover] = useState(true);
-  const [discoverState, setDiscoverState] = useState("");
-  const [discoverLoading, setDiscoverLoading] = useState(false);
-  const [discoverResult, setDiscoverResult] = useState<{
-    facilities_scanned: number;
-    ats_detected: number;
-    jobs_created: number;
-    jobs_updated: number;
-    jobs_skipped: number;
-    errors: { facility: string; message: string }[];
-  } | null>(null);
-  const [discoverError, setDiscoverError] = useState<string | null>(null);
+  // Detect career pages state
+  const [showDetect, setShowDetect] = useState(true);
+  const [detectState, setDetectState] = useState("");
+  const [detectLoading, setDetectLoading] = useState(false);
+  const [detectResult, setDetectResult] = useState<DetectResult | null>(null);
+  const [detectError, setDetectError] = useState<string | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
-  async function handleDiscover() {
-    setDiscoverLoading(true);
-    setDiscoverError(null);
-    setDiscoverResult(null);
+  async function handleDetect() {
+    setDetectLoading(true);
+    setDetectError(null);
+    setDetectResult(null);
     try {
       const body: Record<string, unknown> = {};
-      if (discoverState) body.state = discoverState;
+      if (detectState) body.state = detectState;
       const res = await fetch("/api/admin/scrape-jobs/discover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,12 +64,12 @@ export default function ScraperClient({
         throw new Error(data.error || `HTTP ${res.status}`);
       }
       const data = await res.json();
-      setDiscoverResult(data);
+      setDetectResult(data);
       router.refresh();
     } catch (e) {
-      setDiscoverError(e instanceof Error ? e.message : "Failed to discover jobs.");
+      setDetectError(e instanceof Error ? e.message : "Failed to detect career pages.");
     } finally {
-      setDiscoverLoading(false);
+      setDetectLoading(false);
     }
   }
 
@@ -99,29 +101,31 @@ export default function ScraperClient({
         </div>
       )}
 
-      {/* Discover Jobs panel */}
+      {/* Step 1: Detect Career Pages */}
       <div className="rounded-xl border border-brand-gray-200 bg-white">
         <button
-          onClick={() => setShowDiscover(!showDiscover)}
+          onClick={() => setShowDetect(!showDetect)}
           className="flex w-full items-center justify-between px-6 py-4 text-left"
         >
           <div>
-            <h2 className="text-base font-semibold text-brand-charcoal">Discover Jobs from Facility Websites</h2>
+            <h2 className="text-base font-semibold text-brand-charcoal">
+              Step 1: Detect Career Pages &amp; ATS
+            </h2>
             <p className="mt-0.5 text-xs text-brand-gray-400">
-              Scans facility websites, detects ATS (Workday, Greenhouse, Lever, iCIMS, SmartRecruiters), and pulls nursing job metadata.
+              Visits each facility&apos;s website, finds their careers page URL, and identifies the ATS system (Workday, Greenhouse, Lever, Avature, etc.).
             </p>
           </div>
-          {showDiscover ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          {showDetect ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
 
-        {showDiscover && (
+        {showDetect && (
           <div className="border-t border-brand-gray-200 px-6 py-4">
             <div className="flex flex-wrap items-end gap-4">
               <div>
                 <label className="mb-1 block text-xs font-medium text-brand-gray-500">State (optional)</label>
                 <select
-                  value={discoverState}
-                  onChange={(e) => setDiscoverState(e.target.value)}
+                  value={detectState}
+                  onChange={(e) => setDetectState(e.target.value)}
                   className="rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
                 >
                   <option value="">All States</option>
@@ -132,43 +136,108 @@ export default function ScraperClient({
               </div>
 
               <button
-                onClick={handleDiscover}
-                disabled={discoverLoading}
+                onClick={handleDetect}
+                disabled={detectLoading}
                 className="flex items-center gap-2 rounded-lg bg-brand-orange px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
-                {discoverLoading ? (
+                {detectLoading ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
                   <Search size={16} />
                 )}
-                {discoverLoading ? "Scanning…" : "Discover Jobs"}
+                {detectLoading ? "Scanning…" : "Detect Career Pages"}
               </button>
             </div>
 
-            {discoverResult && (
-              <div className="mt-4 space-y-2">
+            {detectResult && (
+              <div className="mt-4 space-y-3">
+                {/* Summary stats */}
                 <div className="flex flex-wrap gap-4 text-sm">
                   <span className="text-brand-gray-500">
-                    Scanned: <strong className="text-brand-charcoal">{discoverResult.facilities_scanned}</strong> facilities
-                  </span>
-                  <span className="text-brand-gray-500">
-                    ATS found: <strong className="text-brand-charcoal">{discoverResult.ats_detected}</strong>
+                    Scanned: <strong className="text-brand-charcoal">{detectResult.facilities_scanned}</strong> facilities
                   </span>
                   <span className="text-green-600">
-                    Jobs created: <strong>{discoverResult.jobs_created}</strong>
-                  </span>
-                  <span className="text-blue-600">
-                    Updated: <strong>{discoverResult.jobs_updated}</strong>
-                  </span>
-                  <span className="text-brand-gray-400">
-                    Skipped: <strong>{discoverResult.jobs_skipped}</strong>
+                    Career pages found: <strong>{detectResult.careers_found}</strong>
                   </span>
                 </div>
-                {discoverResult.errors.length > 0 && (
+
+                {/* ATS breakdown */}
+                {Object.keys(detectResult.ats_breakdown).length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(detectResult.ats_breakdown)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([type, count]) => (
+                        <span
+                          key={type}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            type === "none"
+                              ? "bg-gray-100 text-gray-500"
+                              : type === "unknown"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {type}: {count}
+                        </span>
+                      ))}
+                  </div>
+                )}
+
+                {/* Details toggle */}
+                {detectResult.details.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setShowDetails(!showDetails)}
+                      className="text-xs text-brand-orange hover:underline"
+                    >
+                      {showDetails ? "Hide details" : "Show all facilities"}
+                    </button>
+
+                    {showDetails && (
+                      <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-brand-gray-200">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-brand-gray-200 bg-brand-gray-100">
+                              <th className="px-3 py-2 font-medium text-brand-gray-500">Facility</th>
+                              <th className="px-3 py-2 font-medium text-brand-gray-500">ATS</th>
+                              <th className="px-3 py-2 font-medium text-brand-gray-500">Career Page URL</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {detectResult.details.map((d, i) => (
+                              <tr key={i} className="border-b border-brand-gray-200 hover:bg-brand-gray-50">
+                                <td className="px-3 py-1.5 text-brand-charcoal">{d.name}</td>
+                                <td className="px-3 py-1.5">
+                                  <span
+                                    className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                                      d.ats_type === "none"
+                                        ? "bg-gray-100 text-gray-400"
+                                        : d.ats_type === "unknown"
+                                        ? "bg-yellow-100 text-yellow-700"
+                                        : "bg-green-100 text-green-700"
+                                    }`}
+                                  >
+                                    {d.ats_type}
+                                  </span>
+                                </td>
+                                <td className="max-w-xs truncate px-3 py-1.5 text-brand-gray-400">
+                                  {d.careers_url || "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Errors */}
+                {detectResult.errors.length > 0 && (
                   <div className="rounded-lg bg-red-50 px-4 py-2 text-xs text-red-700">
-                    <strong>{discoverResult.errors.length} errors:</strong>
+                    <strong>{detectResult.errors.length} errors:</strong>
                     <ul className="mt-1 list-disc pl-4">
-                      {discoverResult.errors.slice(0, 5).map((e, i) => (
+                      {detectResult.errors.slice(0, 5).map((e, i) => (
                         <li key={i}>{e.facility}: {e.message}</li>
                       ))}
                     </ul>
@@ -177,17 +246,21 @@ export default function ScraperClient({
               </div>
             )}
 
-            {discoverError && (
-              <p className="mt-3 text-sm text-red-600">{discoverError}</p>
+            {detectError && (
+              <p className="mt-3 text-sm text-red-600">{detectError}</p>
             )}
           </div>
         )}
       </div>
 
-      {/* Trigger panel (legacy Python scraper) */}
+      {/* Step 2: Scrape Jobs (coming soon / legacy) */}
       <div className="rounded-xl border border-brand-gray-200 bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-brand-charcoal">Run a Scraper (Legacy)</h2>
+        <h2 className="mb-4 text-base font-semibold text-brand-charcoal">Step 2: Scrape Jobs from ATS (Coming Soon)</h2>
+        <p className="text-xs text-brand-gray-400 mb-4">
+          Once career pages are detected above, this step will pull structured job data from known ATS systems (Workday, Greenhouse, Lever, etc.).
+        </p>
 
+        <h3 className="mb-3 text-sm font-medium text-brand-gray-500">Legacy Scraper</h3>
         <div className="flex flex-wrap items-end gap-4">
           {/* Source type */}
           <div>
