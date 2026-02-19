@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   DollarSign,
   Settings,
+  Bot,
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +20,7 @@ const navItems = [
   { href: "/admin/nurses", label: "Nurses", icon: Users, comingSoon: false },
   { href: "/admin/facilities", label: "Facilities", icon: Building2, comingSoon: false },
   { href: "/admin/jobs", label: "Job Listings", icon: Briefcase, comingSoon: false },
+  { href: "/admin/scraper", label: "Scraper", icon: Bot, comingSoon: false },
   { href: "/admin/rentals", label: "Rental Listings", icon: Home, comingSoon: true },
   { href: "/admin/analyses", label: "Analyses", icon: FileSearch, comingSoon: false },
   { href: "/admin/credentials", label: "Credentials", icon: ShieldCheck, comingSoon: true },
