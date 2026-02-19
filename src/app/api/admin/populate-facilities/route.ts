@@ -37,9 +37,8 @@ interface PopulateBody {
 // Google Places Text Search (New API)
 // ---------------------------------------------------------------------------
 
-const GOOGLE_API_KEY = process.env.GOOGLE_PLACES_API_KEY ?? "";
-
 async function searchPlaces(
+  apiKey: string,
   query: string,
   pageToken?: string
 ): Promise<{ places: PlaceResult[]; nextPageToken?: string }> {
@@ -60,7 +59,7 @@ async function searchPlaces(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Goog-Api-Key": GOOGLE_API_KEY,
+        "X-Goog-Api-Key": apiKey,
         "X-Goog-FieldMask":
           "places.id,places.displayName,places.formattedAddress,places.websiteUri,places.location,places.types,nextPageToken",
       },
@@ -127,6 +126,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 2. Validate input
+  const GOOGLE_API_KEY = process.env.GOOGLE_PLACES_API_KEY ?? "";
   if (!GOOGLE_API_KEY) {
     return NextResponse.json(
       { error: "GOOGLE_PLACES_API_KEY not configured" },
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
   let page = 0;
 
   do {
-    const result = await searchPlaces(hospitalQuery, nextPageToken);
+    const result = await searchPlaces(GOOGLE_API_KEY, hospitalQuery, nextPageToken);
     allPlaces.push(...result.places);
     nextPageToken = result.nextPageToken;
     page++;
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
     page = 0;
 
     do {
-      const result = await searchPlaces(clinicQuery, nextPageToken);
+      const result = await searchPlaces(GOOGLE_API_KEY, clinicQuery, nextPageToken);
       allPlaces.push(...result.places);
       nextPageToken = result.nextPageToken;
       page++;
