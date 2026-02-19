@@ -25,8 +25,8 @@ export function JobDetailClient({
 }) {
   const [showApplyModal, setShowApplyModal] = useState(false);
 
-  const isVerified =
-    job.data_source === "self_reported" && job.facilities?.is_claimed;
+  const isClaimed = job.data_source === "self_reported";
+  const isVerified = isClaimed;
   const weeklyBase = job.pay_rate_hourly ? job.pay_rate_hourly * 36 : null;
 
   return (
@@ -269,7 +269,7 @@ export function JobDetailClient({
             )}
 
             {/* Sourced listing callout */}
-            {!job.facilities?.is_claimed && job.facilities?.name && (
+            {!isClaimed && job.facilities?.name && (
               <div className="mt-4 rounded-xl border border-dashed border-brand-gray-300 bg-brand-gray-100 p-5">
                 <p className="text-sm text-brand-gray-500">
                   Are you the hiring manager at{" "}
@@ -312,7 +312,7 @@ export function JobDetailClient({
 
               {/* Apply button — logic depends on claimed status */}
               <div id="apply" className="mt-4">
-                {job.facilities?.is_claimed ? (
+                {isClaimed ? (
                   // Claimed facility → in-platform application flow
                   isLoggedIn ? (
                     <button
@@ -391,7 +391,7 @@ export function JobDetailClient({
               <span className="text-xs font-normal text-[#666666]">/wk</span>
             </p>
           )}
-          {job.facilities?.is_claimed ? (
+          {isClaimed ? (
             isLoggedIn ? (
               <button
                 onClick={() => setShowApplyModal(true)}

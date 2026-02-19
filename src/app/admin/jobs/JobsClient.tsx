@@ -54,6 +54,7 @@ const EMPTY_FORM = {
   description: "",
   data_source: "self_reported",
   source_url: "",
+  listing_type: "claimed" as "claimed" | "unclaimed",
 };
 
 type FormState = typeof EMPTY_FORM;
@@ -71,6 +72,7 @@ function jobToForm(j: Job): FormState {
     description: j.description ?? "",
     data_source: j.data_source,
     source_url: "",
+    listing_type: j.data_source === "self_reported" ? "claimed" : "unclaimed",
   };
 }
 
@@ -146,7 +148,7 @@ export default function JobsClient({
           contract_weeks: createForm.contract_weeks ? Number(createForm.contract_weeks) : undefined,
           start_date: createForm.start_date || undefined,
           description: createForm.description || undefined,
-          data_source: createForm.data_source || "self_reported",
+          data_source: createForm.listing_type === "claimed" ? "self_reported" : (createForm.data_source === "self_reported" ? "scraped" : createForm.data_source),
           source_url: createForm.source_url || undefined,
         });
         setCreateForm(EMPTY_FORM);
@@ -177,7 +179,7 @@ export default function JobsClient({
           contract_weeks: editForm.contract_weeks ? Number(editForm.contract_weeks) : null,
           start_date: editForm.start_date || null,
           description: editForm.description || null,
-          data_source: editForm.data_source || "direct",
+          data_source: editForm.listing_type === "claimed" ? "self_reported" : (editForm.data_source === "self_reported" ? "scraped" : editForm.data_source),
         });
         setEditJob(null);
         router.refresh();
@@ -485,23 +487,26 @@ function JobFormModal({
               className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
             >
               <option value="">Select facility…</option>
-              <optgroup label="✅ Claimed">
-                {facilities.filter((f) => f.is_claimed).map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}{f.location_state ? ` (${f.location_state})` : ""}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="⬜ Unclaimed">
-                {facilities.filter((f) => !f.is_claimed).map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}{f.location_state ? ` (${f.location_state})` : ""}
-                  </option>
-                ))}
-              </optgroup>
+              {facilities.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}{f.location_state ? ` (${f.location_state})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-brand-gray-500">Listing Type *</label>
+            <select
+              value={form.listing_type}
+              onChange={(e) => field("listing_type", e.target.value)}
+              className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+            >
+              <option value="claimed">Claimed — In-platform apply</option>
+              <option value="unclaimed">Unclaimed — Links to source URL</option>
             </select>
             <p className="mt-1 text-xs text-brand-gray-400">
-              Unclaimed facilities redirect nurses to the source URL. Claimed facilities use the in-platform apply flow.
+              Claimed listings use the in-platform apply flow. Unclaimed listings redirect nurses to the source URL.
             </p>
           </div>
 
@@ -595,18 +600,20 @@ function JobFormModal({
             </div>
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-brand-gray-500">
-              Source URL <span className="font-normal text-brand-gray-400">(required for unclaimed facilities)</span>
-            </label>
-            <input
-              type="url"
-              value={form.source_url}
-              onChange={(e) => field("source_url", e.target.value)}
-              placeholder="https://hospital.org/careers/job/123"
-              className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
-            />
-          </div>
+          {form.listing_type === "unclaimed" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-brand-gray-500">
+                Source URL <span className="font-normal text-brand-gray-400">(required for unclaimed listings)</span>
+              </label>
+              <input
+                type="url"
+                value={form.source_url}
+                onChange={(e) => field("source_url", e.target.value)}
+                placeholder="https://hospital.org/careers/job/123"
+                className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
+              />
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-brand-gray-500">Description</label>

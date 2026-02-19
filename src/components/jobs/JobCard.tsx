@@ -14,8 +14,7 @@ export function JobCard({
   isLoggedIn: boolean;
   matchReason?: string;
 }) {
-  const isVerified =
-    job.data_source === "self_reported" && job.facilities?.is_claimed;
+  const isVerified = job.data_source === "self_reported";
 
   return (
     <div className="rounded-xl border border-brand-gray-200 bg-white p-5 transition-shadow hover:shadow-md">
