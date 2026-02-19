@@ -10,6 +10,7 @@ import {
   FileText,
   Inbox,
   BarChart3,
+  ClipboardList,
 } from "lucide-react";
 
 async function signOut() {
@@ -118,6 +119,13 @@ export default async function DashboardLayout({
                 className="block rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
               >
                 Employer Dashboard
+              </Link>
+              <Link
+                href="/facility/jobs"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
+              >
+                <ClipboardList size={16} />
+                My Job Postings
               </Link>
               <Link
                 href="/facility/candidates"

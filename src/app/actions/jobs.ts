@@ -304,3 +304,201 @@ export async function updateApplicationStatus(
   if (error) return { error: error.message };
   return { success: true };
 }
+
+// ---------------------------------------------------------------------------
+// Facility Job Posting Management
+// ---------------------------------------------------------------------------
+
+export type FacilityJobPosting = {
+  id: string;
+  title: string;
+  specialty: string;
+  shift_type: string | null;
+  pay_rate_hourly: number | null;
+  pay_package_total: number | null;
+  stipend_housing: number | null;
+  stipend_meals: number | null;
+  contract_weeks: number | null;
+  start_date: string | null;
+  requirements: string[];
+  description: string | null;
+  is_active: boolean;
+  slots_available: number | null;
+  created_at: string;
+  data_source: string;
+};
+
+export async function getFacilityJobPostings(): Promise<{
+  data: FacilityJobPosting[];
+  error?: string;
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { data: [], error: "Not authenticated" };
+
+  const { data, error } = await supabase
+    .from("job_postings")
+    .select(
+      `id, title, specialty, shift_type, pay_rate_hourly, pay_package_total,
+       stipend_housing, stipend_meals, contract_weeks, start_date,
+       requirements, description, is_active, slots_available, created_at, data_source`
+    )
+    .eq("facility_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) return { error: error.message, data: [] };
+
+  const rows = (data ?? []).map((r) => ({
+    ...r,
+    requirements: Array.isArray(r.requirements) ? r.requirements : [],
+  })) as FacilityJobPosting[];
+
+  return { data: rows };
+}
+
+export async function getFacilityJobPostingById(
+  id: string
+): Promise<{ data: FacilityJobPosting | null; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const { data, error } = await supabase
+    .from("job_postings")
+    .select(
+      `id, title, specialty, shift_type, pay_rate_hourly, pay_package_total,
+       stipend_housing, stipend_meals, contract_weeks, start_date,
+       requirements, description, is_active, slots_available, created_at, data_source`
+    )
+    .eq("id", id)
+    .eq("facility_id", user.id)
+    .single();
+
+  if (error) return { data: null, error: error.message };
+
+  return {
+    data: {
+      ...data,
+      requirements: Array.isArray(data.requirements) ? data.requirements : [],
+    } as FacilityJobPosting,
+  };
+}
+
+export type CreateJobInput = {
+  title: string;
+  specialty: string;
+  shift_type: string;
+  pay_rate_hourly: number;
+  stipend_housing: number;
+  stipend_meals: number;
+  pay_package_total: number;
+  contract_weeks: number | null;
+  start_date: string | null;
+  slots_available: number;
+  requirements: string[];
+  description: string;
+};
+
+export async function createJobPosting(input: CreateJobInput) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase.from("job_postings").insert({
+    facility_id: user.id,
+    data_source: "self_reported",
+    title: input.title,
+    specialty: input.specialty,
+    shift_type: input.shift_type,
+    pay_rate_hourly: input.pay_rate_hourly,
+    stipend_housing: input.stipend_housing,
+    stipend_meals: input.stipend_meals,
+    pay_package_total: input.pay_package_total,
+    contract_weeks: input.contract_weeks,
+    start_date: input.start_date || null,
+    slots_available: input.slots_available,
+    requirements: input.requirements,
+    description: input.description || null,
+    is_active: true,
+  });
+
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function updateJobPosting(id: string, input: CreateJobInput) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("job_postings")
+    .update({
+      title: input.title,
+      specialty: input.specialty,
+      shift_type: input.shift_type,
+      pay_rate_hourly: input.pay_rate_hourly,
+      stipend_housing: input.stipend_housing,
+      stipend_meals: input.stipend_meals,
+      pay_package_total: input.pay_package_total,
+      contract_weeks: input.contract_weeks,
+      start_date: input.start_date || null,
+      slots_available: input.slots_available,
+      requirements: input.requirements,
+      description: input.description || null,
+    })
+    .eq("id", id)
+    .eq("facility_id", user.id);
+
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function toggleJobActive(id: string, isActive: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("job_postings")
+    .update({ is_active: isActive })
+    .eq("id", id)
+    .eq("facility_id", user.id);
+
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function deleteJobPosting(id: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  // Soft delete: set is_active = false
+  const { error } = await supabase
+    .from("job_postings")
+    .update({ is_active: false })
+    .eq("id", id)
+    .eq("facility_id", user.id);
+
+  if (error) return { error: error.message };
+  return { success: true };
+}

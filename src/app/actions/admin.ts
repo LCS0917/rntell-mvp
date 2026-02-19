@@ -625,3 +625,101 @@ export async function getAdminProfile() {
   const { user } = await requireAdmin();
   return { email: user.email, role: "admin" };
 }
+
+// ---------------------------------------------------------------------------
+// CREATE FACILITY
+// ---------------------------------------------------------------------------
+export async function createFacility(data: {
+  name: string;
+  location_city?: string;
+  location_state?: string;
+  type?: string;
+  data_source?: string;
+  description?: string;
+  website?: string;
+}) {
+  await requireAdmin();
+  const db = createAdminClient();
+
+  // Create a profile row first (facilities FK to profiles)
+  const { data: authUser, error: authError } = await db.auth.admin.createUser({
+    email: `facility-${Date.now()}@rntell-placeholder.com`,
+    password: crypto.randomUUID(),
+    email_confirm: true,
+    user_metadata: { role: "facility" },
+  });
+  if (authError) throw authError;
+
+  const facilityId = authUser.user.id;
+
+  // Update the profile name
+  const { error: profileError } = await db
+    .from("profiles")
+    .update({ full_name: data.name })
+    .eq("id", facilityId);
+  if (profileError) throw profileError;
+
+  // Insert into facilities
+  const { error } = await db.from("facilities").insert({
+    id: facilityId,
+    name: data.name,
+    location_city: data.location_city || null,
+    location_state: data.location_state || null,
+    type: data.type || null,
+    data_source: data.data_source || "imported",
+    description: data.description || null,
+    website: data.website || null,
+    is_claimed: false,
+  });
+  if (error) throw error;
+
+  return { success: true, id: facilityId };
+}
+
+// ---------------------------------------------------------------------------
+// CREATE JOB
+// ---------------------------------------------------------------------------
+export async function createJob(data: {
+  facility_id: string;
+  title: string;
+  specialty: string;
+  pay_rate_hourly?: number;
+  stipend_housing?: number;
+  stipend_meals?: number;
+  contract_weeks?: number;
+  start_date?: string;
+  description?: string;
+  data_source?: string;
+}) {
+  await requireAdmin();
+  const db = createAdminClient();
+
+  const { error } = await db.from("job_postings").insert({
+    facility_id: data.facility_id,
+    title: data.title,
+    specialty: data.specialty,
+    pay_rate_hourly: data.pay_rate_hourly || null,
+    stipend_housing: data.stipend_housing || null,
+    stipend_meals: data.stipend_meals || null,
+    contract_weeks: data.contract_weeks || null,
+    start_date: data.start_date || null,
+    description: data.description || null,
+    data_source: data.data_source || "direct",
+    is_active: true,
+  });
+  if (error) throw error;
+
+  return { success: true };
+}
+
+// Get facility list for job creation dropdown
+export async function getFacilityList() {
+  await requireAdmin();
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("facilities")
+    .select("id, name, location_state")
+    .order("name");
+  if (error) throw error;
+  return data || [];
+}
