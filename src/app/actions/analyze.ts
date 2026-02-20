@@ -274,7 +274,7 @@ export async function analyzeContract(
         facility_state: input.state,
         facility_zip_code: input.facility_zip_code || null,
         specialty: input.specialty || null,
-        shift_type: input.shift_type || null,
+        shift_type: input.shift_type ? input.shift_type.toLowerCase() : null,
         contract_weeks: input.contract_weeks ?? 13,
         start_date: input.start_date || null,
         contract_end_date: input.contract_end_date || null,
