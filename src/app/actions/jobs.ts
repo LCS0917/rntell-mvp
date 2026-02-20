@@ -28,8 +28,10 @@ export type PublicJobPosting = {
   stipend_housing: number | null;
   stipend_meals: number | null;
   contract_weeks: number | null;
+  hours_per_week: number | null;
   start_date: string | null;
   requirements: string[];
+  experience_required: string | null;
   description: string | null;
   is_active: boolean;
   slots_available: number | null;
@@ -53,6 +55,8 @@ export type JobDetail = PublicJobPosting & {
   facility_reviews_avg?: number;
   facility_review_count?: number;
   source_url?: string | null;
+  hours_per_week: number | null;
+  experience_required: string | null;
 };
 
 // Legacy alias used by existing dashboard nurse/jobs page
@@ -127,33 +131,34 @@ type NurseProfile = {
 
 function scoreJobMatch(
   job: PublicJobPosting,
-  nurse: NurseProfile
+  nurse: NurseProfile,
+  payPercentile?: { p50: number; p75: number }
 ): { score: number; reasons: string[] } {
   let score = 0;
   const reasons: string[] = [];
 
-  // Specialty match: 40 pts
+  // Specialty match: 30 pts
   if (
     nurse.specialty &&
     job.specialty.toLowerCase() === nurse.specialty.toLowerCase()
   ) {
-    score += 40;
+    score += 30;
     reasons.push(`Matches your ${nurse.specialty} specialty`);
   }
 
-  // License state match: 30 pts
+  // License state match: 20 pts
   if (
     nurse.license_state &&
     job.facilities?.location_state?.toUpperCase() ===
       nurse.license_state.toUpperCase()
   ) {
-    score += 30;
+    score += 20;
     reasons.push(
       `In your license state (${job.facilities.location_state})`
     );
   }
 
-  // Location proximity / preferred states: 20 pts
+  // Location proximity / preferred states: 10 pts
   const preferred = nurse.travel_preferences?.preferred_states ?? [];
   if (
     preferred.length > 0 &&
@@ -163,10 +168,41 @@ function scoreJobMatch(
         s.toUpperCase() === job.facilities!.location_state!.toUpperCase()
     )
   ) {
-    score += 20;
+    score += 10;
     reasons.push(
       `Near your preferred location (${job.facilities.location_state})`
     );
+  }
+
+  // Pay ranking: 20 pts — higher-paying jobs score higher
+  if (job.pay_rate_hourly && payPercentile) {
+    if (job.pay_rate_hourly >= payPercentile.p75) {
+      score += 20;
+      reasons.push(`Top-paying ($${job.pay_rate_hourly}/hr)`);
+    } else if (job.pay_rate_hourly >= payPercentile.p50) {
+      score += 10;
+      reasons.push(`Above-average pay ($${job.pay_rate_hourly}/hr)`);
+    }
+  } else if (job.pay_package_total && payPercentile) {
+    // Fall back to weekly package if no hourly
+    if (job.pay_package_total >= payPercentile.p75) {
+      score += 20;
+      reasons.push(`Top-paying ($${job.pay_package_total.toLocaleString()}/wk)`);
+    } else if (job.pay_package_total >= payPercentile.p50) {
+      score += 10;
+      reasons.push(`Above-average pay ($${job.pay_package_total.toLocaleString()}/wk)`);
+    }
+  }
+
+  // Contract weeks: 10 pts — 13-week standard is most sought
+  if (job.contract_weeks) {
+    if (job.contract_weeks === 13) {
+      score += 10;
+      reasons.push("Standard 13-week contract");
+    } else if (job.contract_weeks >= 8 && job.contract_weeks <= 26) {
+      score += 5;
+      reasons.push(`${job.contract_weeks}-week contract`);
+    }
   }
 
   // Start date alignment: 10 pts — upcoming starts get bonus
@@ -181,6 +217,19 @@ function scoreJobMatch(
   }
 
   return { score, reasons };
+}
+
+/** Compute pay percentiles for the active job set */
+function computePayPercentiles(jobs: PublicJobPosting[]): { p50: number; p75: number } {
+  const pays = jobs
+    .map((j) => j.pay_rate_hourly ?? (j.pay_package_total ? j.pay_package_total / 36 : null))
+    .filter((p): p is number => p !== null)
+    .sort((a, b) => a - b);
+
+  if (pays.length === 0) return { p50: 0, p75: 0 };
+  const p50 = pays[Math.floor(pays.length * 0.5)];
+  const p75 = pays[Math.floor(pays.length * 0.75)];
+  return { p50, p75 };
 }
 
 // ---------------------------------------------------------------------------
@@ -199,8 +248,8 @@ export async function getPublicJobPostings(
       id, title, specialty, shift_type,
       pay_rate_hourly, pay_package_total,
       stipend_housing, stipend_meals,
-      contract_weeks, start_date,
-      requirements, description,
+      contract_weeks, hours_per_week, start_date,
+      requirements, experience_required, description,
       is_active, slots_available, data_source, created_at,
       facilities (
         id, name, location_city, location_state, is_claimed
@@ -342,8 +391,8 @@ export async function getMatchedJobs(): Promise<{
       id, title, specialty, shift_type,
       pay_rate_hourly, pay_package_total,
       stipend_housing, stipend_meals,
-      contract_weeks, start_date,
-      requirements, description,
+      contract_weeks, hours_per_week, start_date,
+      requirements, experience_required, description,
       is_active, slots_available, data_source, created_at,
       facilities (
         id, name, location_city, location_state, is_claimed
@@ -362,9 +411,12 @@ export async function getMatchedJobs(): Promise<{
     .eq("nurse_id", user.id);
   const appliedJobIds = new Set((apps ?? []).map((a) => a.job_id));
 
-  const scored = (jobs as unknown as PublicJobPosting[])
+  const allJobs = jobs as unknown as PublicJobPosting[];
+  const payPercentile = computePayPercentiles(allJobs);
+
+  const scored = allJobs
     .map((job) => {
-      const { score, reasons } = scoreJobMatch(job, nurse);
+      const { score, reasons } = scoreJobMatch(job, nurse, payPercentile);
       return {
         ...job,
         requirements: Array.isArray(job.requirements) ? job.requirements : [],
@@ -398,8 +450,8 @@ export async function getJobById(
       id, title, specialty, shift_type,
       pay_rate_hourly, pay_package_total,
       stipend_housing, stipend_meals, travel_reimbursement,
-      contract_weeks, start_date,
-      requirements, description,
+      contract_weeks, hours_per_week, start_date,
+      requirements, experience_required, description,
       is_active, slots_available, data_source, source_url, created_at,
       facilities (
         id, name, location_city, location_state, is_claimed

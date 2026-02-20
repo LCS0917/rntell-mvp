@@ -1,139 +1,107 @@
-# Plan: Expand Contract Analyzer for Tax Compliance Data Collection
+# Plan: Fix Scraper + Enrich Job Data with Gemini + Upgrade Matching
 
-## Summary
-Expand the existing anonymous contract analyzer (`/analyze`) to capture all four layers of tax compliance data. No auth changes — everything stays public/anonymous and lives on `contract_analyses`.
-
----
-
-## 1. Database Migration (`supabase/migrations/20240207_contract_tax_fields.sql`)
-
-Add columns to `contract_analyses` for Layer 1–3 fields not already present, plus a JSONB column for Layer 4 user context:
-
-**Layer 1 — New columns:**
-- `overtime_rate` numeric(8,2)
-- `doubletime_rate` numeric(8,2)
-- `oncall_rate` numeric(8,2)
-- `callback_rate` numeric(8,2)
-- `bonus_signon` numeric(10,2)
-- `bonus_completion` numeric(10,2)
-- `bonus_retention` numeric(10,2)
-- `bonus_taxable_week` text — which week bonus is paid
-
-**Layer 2 — New columns:**
-- `reimbursement_type` text — 'reimbursement' | 'bonus' (not a DB enum, just text to keep it simple)
-- `stipend_optimization_gap` jsonb — `{ housing_gap: number, meals_gap: number }` (derived after GSA lookup)
-
-**Layer 3 — New columns:**
-- `facility_zip_code` text
-- `contract_end_date` date (start_date already exists)
-- `contracted_hours_per_week` smallint
-
-**Layer 4 — New column:**
-- `user_tax_context` jsonb — `{ tax_home_zip, tax_home_monthly_expense, metro_months_last_24 }`
-
-**Also:**
-- `audit_risk_score` smallint — 0–100 composite score
-
-No RLS changes. No new tables.
+## Problem Summary
+1. **Scraper**: Times out on Vercel (60s limit), processes facilities sequentially. 60-70% of source_urls don't point to actual job posts.
+2. **Thin data**: Scraper only saves title, specialty, location, URL, description, shift_type. No pay, no hours, no contract length, no certifications, no experience requirements.
+3. **Weak matching**: Only scores on 4 factors (specialty, license state, preferred states, start date). Can't score by pay, hours, contract length, certs.
 
 ---
 
-## 2. PDF Extraction Prompt Update (`src/app/actions/parsePdf.ts`)
+## Step 1: DB Migration — add `hours_per_week` and `experience_required`
 
-Expand `EXTRACTION_PROMPT` and `ExtractedFields` type to ask Claude to also extract:
-- `overtime_rate`, `doubletime_rate`, `oncall_rate`, `callback_rate`
-- `bonus_signon`, `bonus_completion`, `bonus_retention`, `bonus_taxable_week`
-- `reimbursement_type` (reimbursement vs bonus)
-- `facility_zip_code`
-- `contract_end_date`
-- `contracted_hours_per_week`
+Add to `job_postings`:
+- `hours_per_week SMALLINT` (36, 40, 48, etc.)
+- `experience_required TEXT` (e.g. "2 years ICU experience")
+- `enriched_at TIMESTAMPTZ` (tracks when Gemini enrichment ran)
 
-Claude will calculate OT (1.5x) and DT (2x) from base if not explicit.
+The `requirements` JSONB column already exists for certifications. No new column needed.
 
----
-
-## 3. Types & Server Action Updates (`src/app/actions/analyze.ts`)
-
-**`ContractInput`** — add all new Layer 1–3 fields.
-
-**`AnalysisResult`** — add:
-- All Layer 1–3 fields echoed back
-- `stipend_optimization_gap` (housing_gap, meals_gap)
-- `wage_recharacterization_risk` boolean (base < $25)
-- `reimbursement_taxable` boolean (type === 'bonus')
-- `hours_flag` text | null (if hours != 36 or 40)
-- `audit_risk_score` number (0–100, calculated when tax context is present)
-- `user_tax_context` (Layer 4 data, populated after follow-up form)
-
-**`analyzeContract`** — expand computation:
-- Calculate OT/DT from base if not provided
-- Calculate `stipend_optimization_gap` = GSA max − reported
-- Set `wage_recharacterization_risk` if base < $25
-- Flag reimbursement as taxable if type = 'bonus'
-- Flag contracted hours if not 36 or 40
-- Save all new columns to DB
-
-**New action: `saveAnalysisTaxContext`** — separate server action called after the follow-up form:
-- Takes `{ analysisId, sessionId, taxContext }`
-- Updates the existing `contract_analyses` row with `user_tax_context` JSONB
-- Calculates and saves `audit_risk_score` (0–100)
-- Returns the updated score + any new alerts
+**File:** New migration `supabase/migrations/20240215_job_enrichment_columns.sql`
 
 ---
 
-## 4. UI Changes (`src/app/analyze/AnalyzeClient.tsx`)
+## Step 2: Fix Scraper Reliability
 
-The flow becomes a 3-step wizard within the same client component:
+**File:** `src/app/api/admin/scrape-jobs/run/route.ts`
 
-### Step 1: Input (existing, expanded)
-- **ContractForm** gets new fieldsets:
-  - "Compensation" section expanded: add OT rate, DT rate, on-call, callback fields
-  - New "Bonuses" subsection: sign-on, completion, retention amounts + taxable week
-  - "Stipends" section: add reimbursement type dropdown (reimbursement/bonus)
-  - "Contract Terms" section: add facility zip, end date, contracted hours/week
-- PDF extraction auto-fills all new fields too
-
-### Step 2: Results (existing, restructured)
-- Replace the single comparison table with **three sections**:
-  1. **Taxable Income** — base rate, OT, DT, on-call, callback, bonuses
-  2. **Stipends** — housing + meals with GSA side-by-side comparison, green/yellow/red indicator per row, optimization gap shown
-  3. **Contract Terms** — zip, dates, hours (with flag if non-standard)
-- **Wage Recharacterization Alert** — prominent warning card if base < $25/hr
-- **Reimbursement Taxability Alert** — warning if travel reimb classified as bonus
-- Keep existing: bill rate card, CTA banner, GSA source footnote
-
-### Step 3: Tax Context Form (new, inline after results)
-- Shown below the results panel, before the CTA
-- Collapsible section titled "Help us calculate your audit risk" with explanation
-- Three fields:
-  1. Permanent tax home zip code (text)
-  2. Monthly tax home expenses ($) — with inline alert if $0
-  3. Months in this metro area in last 24 months (number) — with inline alert if ≥10
-- "Calculate Audit Risk" button → calls `saveAnalysisTaxContext`
-- On success: renders **Audit Risk Score** card (0–100 gauge/bar) with score breakdown
-
-### Audit Risk Score Components:
-- Base rate < $25: +30 pts
-- Tax home expenses = $0: +30 pts
-- Either stipend > GSA max: +20 pts
-- Metro time > 10 months: +20 pts
+- **Parallel batching**: Process 5 facilities concurrently (replace sequential `for` loop with `Promise.all` batches)
+- **URL validation**: After building `source_url`, HEAD-check it (2s timeout). Skip URLs returning non-200 or redirecting to generic careers pages
+- **maxDuration → 120s**
+- **Limit**: Cap at 20 facilities per run (same as discover step)
 
 ---
 
-## 5. Files Changed
+## Step 3: Gemini Enrichment (new API route)
 
-| File | Change |
+**New file:** `src/app/api/admin/scrape-jobs/enrich/route.ts`
+
+Separate admin step that runs AFTER scraping:
+
+1. Query `job_postings` where `data_source = 'scraped'` AND `enriched_at IS NULL` AND `source_url IS NOT NULL`
+2. For each job (5 in parallel):
+   a. Fetch the `source_url` page (3s timeout)
+   b. Strip HTML to text, truncate to ~4000 chars
+   c. Send to **Gemini 2.5 Flash** with structured extraction prompt
+   d. UPDATE `job_postings` with extracted fields
+3. Return summary
+
+**Gemini extracts → DB columns:**
+- `pay_rate_hourly`, `pay_package_total`, `stipend_housing`, `stipend_meals`
+- `contract_weeks`, `hours_per_week`, `shift_type`, `start_date`
+- `requirements` (JSON array: ["BLS", "ACLS", "2yr ICU exp"])
+- `experience_required` (text)
+- `description` (cleaned, up to 500 chars)
+
+**Env:** Add `GEMINI_API_KEY` to `.env.local` + Vercel
+
+---
+
+## Step 4: Upgrade Smart Match Scorer
+
+**File:** `src/app/actions/jobs.ts` — `scoreJobMatch()`
+
+New 100-point scoring:
+- **Specialty match: 30 pts** (was 40)
+- **License state: 20 pts** (was 30)
+- **Preferred states: 10 pts** (was 20)
+- **Pay ranking: 20 pts** — higher-paying jobs score higher (top quartile = 20, top half = 10)
+- **Contract weeks: 10 pts** — 13-week standard gets bonus (most sought)
+- **Start date: 10 pts** — within 30 days
+
+---
+
+## Step 5: Display Richer Data
+
+### JobCard.tsx — add tags:
+- Hours/week pill (e.g. "36 hrs/wk")
+- Top 2 requirement pills (e.g. "BLS", "ACLS")
+
+### JobDetailClient.tsx — add:
+- Hours/week in tags row
+- Experience required text below requirements
+- Pay breakdown uses actual `hours_per_week` instead of hardcoded ×36
+
+### Types + queries — add `hours_per_week` and `experience_required` to all SELECT queries and TS types
+
+---
+
+## Step 6: Admin UI — "Enrich with AI" Button
+
+**File:** `src/app/admin/scraper/ScraperClient.tsx`
+
+Add collapsible "Step 3: Enrich Jobs with AI" section with enrich button and results display.
+
+---
+
+## Files Changed
+
+| File | Action |
 |------|--------|
-| `supabase/migrations/20240207_contract_tax_fields.sql` | **NEW** — add columns |
-| `src/app/actions/parsePdf.ts` | Expand prompt + types |
-| `src/app/actions/analyze.ts` | Expand types + computation + new `saveAnalysisTaxContext` action |
-| `src/app/analyze/AnalyzeClient.tsx` | Expand form, restructure results, add tax context form + audit score |
-
----
-
-## Not Changed
-- PDF upload/parsing flow (just the extraction prompt)
-- RLS policies
-- Auth/session/claim flow
-- `gsa.ts` (already returns what we need)
-- `page.tsx` wrapper
+| `supabase/migrations/20240215_job_enrichment_columns.sql` | NEW |
+| `.env.local` | ADD `GEMINI_API_KEY` |
+| `src/app/api/admin/scrape-jobs/run/route.ts` | EDIT — parallel + validation |
+| `src/app/api/admin/scrape-jobs/enrich/route.ts` | NEW — Gemini enrichment |
+| `src/app/actions/jobs.ts` | EDIT — types, queries, scorer |
+| `src/components/jobs/JobCard.tsx` | EDIT — show hours, certs |
+| `src/app/jobs/[id]/JobDetailClient.tsx` | EDIT — hours, experience |
+| `src/app/admin/scraper/ScraperClient.tsx` | EDIT — enrich step |

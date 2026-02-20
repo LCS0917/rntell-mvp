@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Clock, Calendar, Shield, Info } from "lucide-react";
+import { MapPin, Clock, Calendar, Shield, Info, Timer } from "lucide-react";
 import type { PublicJobPosting } from "@/app/actions/jobs";
 import { SHIFT_LABELS } from "@/lib/constants";
 
@@ -68,6 +68,14 @@ export function JobCard({
               </span>
             )}
 
+            {/* Hours/week */}
+            {job.hours_per_week && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-gray-100 px-2.5 py-0.5 text-xs font-medium text-brand-charcoal">
+                <Timer size={11} />
+                {job.hours_per_week} hrs/wk
+              </span>
+            )}
+
             {/* Start date */}
             {job.start_date && (
               <span className="rounded-full bg-brand-gray-100 px-2.5 py-0.5 text-xs font-medium text-brand-charcoal">
@@ -78,6 +86,16 @@ export function JobCard({
                 })}
               </span>
             )}
+
+            {/* Top certifications (first 2) */}
+            {job.requirements.length > 0 && job.requirements.slice(0, 2).map((req) => (
+              <span
+                key={req}
+                className="rounded-full bg-brand-peach-50/60 px-2.5 py-0.5 text-xs font-medium text-brand-orange"
+              >
+                {req}
+              </span>
+            ))}
 
             {/* Trust badge */}
             {isVerified ? (

@@ -17,8 +17,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Allow up to 60s on Vercel (Pro plan) — default is 10s
-export const maxDuration = 60;
+// Allow up to 120s on Vercel (Pro plan) — default is 10s
+export const maxDuration = 120;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -341,6 +341,25 @@ function hashContent(content: string): string {
   return Math.abs(hash).toString(36);
 }
 
+/** Quick HEAD check — returns true if URL resolves to a real page (not generic careers) */
+async function isValidJobUrl(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, {
+      method: "HEAD",
+      signal: AbortSignal.timeout(2000),
+      headers: FETCH_HEADERS,
+      redirect: "follow",
+    });
+    if (!res.ok) return false;
+    // Reject if redirected to a generic careers/home page
+    const finalUrl = res.url.toLowerCase();
+    if (finalUrl.endsWith("/careers") || finalUrl.endsWith("/careers/") || finalUrl.endsWith("/jobs") || finalUrl.endsWith("/jobs/")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
@@ -375,7 +394,7 @@ export async function POST(request: NextRequest) {
     query = query.eq("location_state", body.state.toUpperCase());
   }
 
-  const { data: facilities, error: fetchErr } = await query.limit(100);
+  const { data: facilities, error: fetchErr } = await query.limit(20);
   if (fetchErr) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 });
   }
@@ -390,10 +409,11 @@ export async function POST(request: NextRequest) {
     errors: [] as { facility: string; message: string }[],
   };
 
-  // 3. Fetch jobs from each facility's ATS
-  for (const facility of (facilities as FacilityRow[]) ?? []) {
-    results.facilities_processed++;
+  // 3. Fetch jobs from each facility's ATS — process in parallel batches of 5
+  const BATCH_SIZE = 5;
+  const allFacilities = (facilities as FacilityRow[]) ?? [];
 
+  async function processFacility(facility: FacilityRow) {
     try {
       let fetchResult: FetchResult = { jobs: [] };
 
@@ -417,11 +437,16 @@ export async function POST(request: NextRequest) {
           fetchResult = await fetchTaleoJobs(facility.careers_url);
           break;
         default:
-          continue;
+          return;
       }
 
-      // 4. Filter jobs with valid source URLs
-      const validJobs = fetchResult.jobs.filter((j) => !!j.source_url);
+      // 4. Filter jobs with valid source URLs + validate they point to real pages
+      const rawJobs = fetchResult.jobs.filter((j) => !!j.source_url);
+      const validJobs: ScrapedJob[] = [];
+      for (const job of rawJobs) {
+        const ok = await isValidJobUrl(job.source_url);
+        if (ok) validJobs.push(job);
+      }
 
       let facilityDeactivated = 0;
 
@@ -485,8 +510,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 6. Deactivate stale jobs — scraped jobs from this facility
-      //    that no longer appear in the ATS results
+      // 6. Deactivate stale jobs
       const { data: activeDbJobs } = await supabase
         .from("job_postings")
         .select("id, source_url")
@@ -505,20 +529,27 @@ export async function POST(request: NextRequest) {
       }
 
       results.jobs_deactivated += facilityDeactivated;
+      results.facilities_processed++;
 
       results.details.push({
         name: facility.name,
         ats_type: facility.ats_type,
         jobs_found: validJobs.length,
         jobs_deactivated: facilityDeactivated,
-        debug: fetchResult.debug,
+        debug: fetchResult.debug + (rawJobs.length > validJobs.length ? ` | ${rawJobs.length - validJobs.length} bad URLs skipped` : ""),
       });
     } catch (e) {
+      results.facilities_processed++;
       results.errors.push({
         facility: facility.name,
         message: e instanceof Error ? e.message : "Unknown error",
       });
     }
+  }
+
+  for (let i = 0; i < allFacilities.length; i += BATCH_SIZE) {
+    const batch = allFacilities.slice(i, i + BATCH_SIZE);
+    await Promise.all(batch.map(processFacility));
   }
 
   return NextResponse.json(results);

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, Play, RefreshCw, CheckCircle, XCircle, Loader2, Clock, AlertCircle, Search, ChevronDown, ChevronUp, Download } from "lucide-react";
+import { Bot, Play, RefreshCw, CheckCircle, XCircle, Loader2, Clock, AlertCircle, Search, ChevronDown, ChevronUp, Download, Sparkles } from "lucide-react";
 import { triggerScraper, type ScrapeJobRecord } from "@/app/actions/admin";
 
 const US_STATES = [
@@ -28,6 +28,14 @@ interface ScrapeResult {
   jobs_deactivated: number;
   details: { name: string; ats_type: string; jobs_found: number; jobs_deactivated: number; debug?: string }[];
   errors: { facility: string; message: string }[];
+}
+
+interface EnrichResult {
+  jobs_enriched: number;
+  jobs_failed: number;
+  message?: string;
+  details: { id: string; title: string; fields_filled: string[] }[];
+  errors: { id: string; title: string; message: string }[];
 }
 
 export default function ScraperClient({
@@ -60,6 +68,13 @@ export default function ScraperClient({
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null);
   const [scrapeError, setScrapeError] = useState<string | null>(null);
   const [showScrapeDetails, setShowScrapeDetails] = useState(false);
+
+  // Enrich state
+  const [showEnrich, setShowEnrich] = useState(true);
+  const [enrichLoading, setEnrichLoading] = useState(false);
+  const [enrichResult, setEnrichResult] = useState<EnrichResult | null>(null);
+  const [enrichError, setEnrichError] = useState<string | null>(null);
+  const [showEnrichDetails, setShowEnrichDetails] = useState(false);
 
   async function handleDetect() {
     setDetectLoading(true);
@@ -124,6 +139,39 @@ export default function ScraperClient({
       setScrapeError(e instanceof Error ? e.message : "Failed to scrape jobs.");
     } finally {
       setScrapeLoading(false);
+    }
+  }
+
+  async function handleEnrich() {
+    setEnrichLoading(true);
+    setEnrichError(null);
+    setEnrichResult(null);
+    try {
+      const res = await fetch("/api/admin/scrape-jobs/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 20 }),
+      });
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(
+          res.ok
+            ? "Invalid response from server"
+            : `Server error (HTTP ${res.status}) — likely timed out.`
+        );
+      }
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      setEnrichResult(data);
+      router.refresh();
+    } catch (e) {
+      setEnrichError(e instanceof Error ? e.message : "Failed to enrich jobs.");
+    } finally {
+      setEnrichLoading(false);
     }
   }
 
@@ -432,6 +480,112 @@ export default function ScraperClient({
 
             {scrapeError && (
               <p className="mt-3 text-sm text-red-600">{scrapeError}</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Step 3: Enrich Jobs with AI */}
+      <div className="rounded-xl border border-brand-gray-200 bg-white">
+        <button
+          onClick={() => setShowEnrich(!showEnrich)}
+          className="flex w-full items-center justify-between px-6 py-4 text-left"
+        >
+          <div>
+            <h2 className="text-base font-semibold text-brand-charcoal">
+              Step 3: Enrich Jobs with AI
+            </h2>
+            <p className="mt-0.5 text-xs text-brand-gray-400">
+              Uses Gemini 2.5 Flash to visit each job&apos;s source page and extract pay rates, hours, certifications, experience requirements, and more.
+            </p>
+          </div>
+          {showEnrich ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+
+        {showEnrich && (
+          <div className="border-t border-brand-gray-200 px-6 py-4">
+            <button
+              onClick={handleEnrich}
+              disabled={enrichLoading}
+              className="flex items-center gap-2 rounded-lg bg-brand-orange px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {enrichLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Sparkles size={16} />
+              )}
+              {enrichLoading ? "Enriching…" : "Enrich Un-enriched Jobs (up to 20)"}
+            </button>
+
+            {enrichResult && (
+              <div className="mt-4 space-y-3">
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <span className="text-green-600">
+                    Enriched: <strong>{enrichResult.jobs_enriched}</strong>
+                  </span>
+                  <span className="text-red-500">
+                    Failed: <strong>{enrichResult.jobs_failed}</strong>
+                  </span>
+                  {enrichResult.message && (
+                    <span className="text-brand-gray-400">{enrichResult.message}</span>
+                  )}
+                </div>
+
+                {enrichResult.details.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setShowEnrichDetails(!showEnrichDetails)}
+                      className="text-xs text-brand-orange hover:underline"
+                    >
+                      {showEnrichDetails ? "Hide details" : "Show per-job breakdown"}
+                    </button>
+
+                    {showEnrichDetails && (
+                      <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-brand-gray-200">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-brand-gray-200 bg-brand-gray-100">
+                              <th className="px-3 py-2 font-medium text-brand-gray-500">Job Title</th>
+                              <th className="px-3 py-2 font-medium text-brand-gray-500">Fields Extracted</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {enrichResult.details.map((d) => (
+                              <tr key={d.id} className="border-b border-brand-gray-200 hover:bg-brand-gray-50">
+                                <td className="max-w-xs truncate px-3 py-1.5 text-brand-charcoal">{d.title}</td>
+                                <td className="px-3 py-1.5">
+                                  <div className="flex flex-wrap gap-1">
+                                    {d.fields_filled.map((f) => (
+                                      <span key={f} className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+                                        {f}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {enrichResult.errors.length > 0 && (
+                  <div className="rounded-lg bg-red-50 px-4 py-2 text-xs text-red-700">
+                    <strong>{enrichResult.errors.length} errors:</strong>
+                    <ul className="mt-1 list-disc pl-4">
+                      {enrichResult.errors.slice(0, 5).map((e, i) => (
+                        <li key={i}>{e.title}: {e.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {enrichError && (
+              <p className="mt-3 text-sm text-red-600">{enrichError}</p>
             )}
           </div>
         )}

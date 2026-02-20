@@ -11,6 +11,7 @@ import {
   Info,
   Star,
   Users,
+  Timer,
 } from "lucide-react";
 import type { JobDetail } from "@/app/actions/jobs";
 import { SHIFT_LABELS } from "@/lib/constants";
@@ -27,7 +28,8 @@ export function JobDetailClient({
 
   const isClaimed = job.data_source === "self_reported";
   const isVerified = isClaimed;
-  const weeklyBase = job.pay_rate_hourly ? job.pay_rate_hourly * 36 : null;
+  const hoursPerWeek = job.hours_per_week ?? 36;
+  const weeklyBase = job.pay_rate_hourly ? job.pay_rate_hourly * hoursPerWeek : null;
 
   return (
     <div className="min-h-screen bg-brand-warm">
@@ -147,6 +149,12 @@ export function JobDetailClient({
                     {job.contract_weeks} weeks
                   </span>
                 )}
+                {job.hours_per_week && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-brand-gray-100 px-3 py-1 text-sm font-medium text-brand-charcoal">
+                    <Timer size={12} />
+                    {job.hours_per_week} hrs/wk
+                  </span>
+                )}
                 {job.start_date && (
                   <span className="rounded-full bg-brand-gray-100 px-3 py-1 text-sm font-medium text-brand-charcoal">
                     Starts{" "}
@@ -186,7 +194,7 @@ export function JobDetailClient({
                   {weeklyBase && (
                     <tr>
                       <td className="py-2.5 text-brand-gray-500">
-                        Weekly Base (×36 hrs)
+                        Weekly Base (×{hoursPerWeek} hrs)
                       </td>
                       <td className="py-2.5 text-right font-medium text-brand-charcoal">
                         ${weeklyBase.toLocaleString()}
@@ -253,6 +261,18 @@ export function JobDetailClient({
                     </span>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Experience Required */}
+            {job.experience_required && (
+              <div className="mt-4 rounded-xl border border-brand-gray-200 bg-white p-6">
+                <h2 className="mb-3 text-lg font-semibold text-brand-charcoal">
+                  Experience Required
+                </h2>
+                <p className="text-sm leading-relaxed text-brand-gray-500">
+                  {job.experience_required}
+                </p>
               </div>
             )}
 
