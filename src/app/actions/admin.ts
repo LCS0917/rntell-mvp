@@ -404,7 +404,7 @@ export async function getJobs(filters?: {
     .select(
       `id, title, specialty, pay_rate_hourly, stipend_housing, stipend_meals,
        data_source, is_active, is_featured, start_date, created_at, contract_weeks, description,
-       facility_id, facilities!inner(name, location_city, location_state)`
+       source_url, facility_id, facilities!inner(name, location_city, location_state)`
     );
 
   if (filters?.specialty) query = query.eq("specialty", filters.specialty);
@@ -475,6 +475,7 @@ export async function getJobs(filters?: {
       contract_weeks: j.contract_weeks,
       start_date: j.start_date,
       description: (j as unknown as { description: string | null }).description,
+      source_url: (j as unknown as { source_url: string | null }).source_url,
       is_featured: (j as unknown as { is_featured: boolean }).is_featured,
     };
   });
@@ -750,6 +751,7 @@ export async function updateJob(
     start_date?: string | null;
     description?: string | null;
     data_source?: string;
+    source_url?: string | null;
     is_active?: boolean;
   }
 ) {

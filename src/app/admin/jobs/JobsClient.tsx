@@ -31,6 +31,7 @@ type Job = {
   contract_weeks: number | null;
   start_date: string | null;
   description: string | null;
+  source_url: string | null;
   is_featured: boolean;
 };
 
@@ -71,7 +72,7 @@ function jobToForm(j: Job): FormState {
     start_date: j.start_date ?? "",
     description: j.description ?? "",
     data_source: j.data_source,
-    source_url: "",
+    source_url: j.source_url ?? "",
     listing_type: j.data_source === "self_reported" ? "claimed" : "unclaimed",
   };
 }
@@ -180,6 +181,7 @@ export default function JobsClient({
           start_date: editForm.start_date || null,
           description: editForm.description || null,
           data_source: editForm.listing_type === "claimed" ? "self_reported" : (editForm.data_source === "self_reported" ? "scraped" : editForm.data_source),
+          source_url: editForm.source_url || null,
         });
         setEditJob(null);
         router.refresh();
