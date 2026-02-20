@@ -25,7 +25,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import { createClient } from "@supabase/supabase-js";
-import { chromium, type Browser } from "playwright";
+import { chromium as playwrightChromium, type Browser } from "playwright-core";
+import chromium from "@sparticuz/chromium";
 
 export const maxDuration = 120;
 
@@ -116,12 +117,18 @@ async function scrapeLinksWithPlaywright(
   try {
     // Navigate with a generous timeout — dynamic sites can be slow
     await page.goto(pageUrl, {
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
       timeout: 20000,
     });
 
+    // Wait for network to settle — ensures all JS bundles have loaded
+    await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+
+    // Smart sleep: CommonSpirit and similar sites use JS frameworks that inject
+    // search results into the DOM after network settles. Give them time to render.
+    await new Promise((r) => setTimeout(r, 3000));
+
     // Additional wait: try to find job-item containers that indicate content loaded
-    // This handles sites like CommonSpirit that render job lists via JS
     try {
       await page.waitForSelector(
         '[class*="job"], [class*="Job"], [class*="posting"], [class*="Posting"], ' +
@@ -573,11 +580,19 @@ export async function POST(request: NextRequest) {
   const allFacilities = (facilities as FacilityRow[]) ?? [];
 
   // Launch a single Playwright browser instance shared across all facilities
+  // Uses @sparticuz/chromium for Vercel serverless compatibility
   let browser: Browser | null = null;
   try {
-    browser = await chromium.launch({ headless: true });
+    // Disable GPU rendering for serverless (property is marked private in types but works at runtime)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (chromium as any).graphicsMode = false;
+    browser = await playwrightChromium.launch({
+      executablePath: await chromium.executablePath(),
+      args: chromium.args,
+      headless: true,
+    });
   } catch (e) {
-    // If Playwright/Chromium isn't available, we'll fall back to static fetch
+    // If Chromium isn't available, we'll fall back to static fetch
     console.warn("Playwright launch failed, falling back to static fetch:", e instanceof Error ? e.message : e);
   }
 
@@ -652,114 +667,125 @@ export async function POST(request: NextRequest) {
       for (const jobUrl of selectedUrls) {
         seenSourceUrls.add(jobUrl);
 
-        // Fetch the full page text with redirect/timeout protection
-        const pageResult = await fetchPageText(jobUrl);
+        // Each URL is wrapped in try/catch so a redirect to Indeed or a 404
+        // does not crash the entire batch for this facility
+        try {
+          // Fetch the full page text with redirect/timeout protection
+          const pageResult = await fetchPageText(jobUrl);
 
-        if (!pageResult) {
-          results.errors.push({ facility: facility.name, message: `Could not fetch ${jobUrl}` });
-          continue;
-        }
-
-        // Skip external redirects (Indeed, LinkedIn, etc.)
-        if (pageResult.skipped) {
-          results.errors.push({ facility: facility.name, message: `${pageResult.reason}: ${jobUrl}` });
-          continue;
-        }
-
-        if (pageResult.text.length < 50) {
-          results.errors.push({ facility: facility.name, message: `Page too short: ${jobUrl}` });
-          continue;
-        }
-
-        // Enrich with Gemini (inline — no separate step)
-        const extracted = await enrichWithGemini(pageResult.text, jobUrl);
-
-        // 300ms delay between Gemini calls
-        await new Promise((r) => setTimeout(r, 300));
-
-        if (!extracted) {
-          results.errors.push({ facility: facility.name, message: `Gemini parse failed for ${jobUrl}` });
-          continue;
-        }
-
-        // Skip if Gemini determined this is a staff/permanent job
-        if (extracted.is_contract === false) {
-          continue;
-        }
-
-        // Build the job title — prefer Gemini's extraction, fall back to link text
-        const linkEntry = allLinks.find((l) => l.url === jobUrl);
-        const title = extracted.title || linkEntry?.text || "Untitled";
-        const specialty = extracted.specialty || inferSpecialty(title);
-        const contentHash = hashContent(title + (extracted.description || "") + jobUrl);
-
-        // --- Phase 5: UPSERT ---
-        const { data: existing } = await supabase
-          .from("job_postings")
-          .select("id, source_hash")
-          .eq("source_url", jobUrl)
-          .maybeSingle();
-
-        const jobData: Record<string, unknown> = {
-          title,
-          specialty,
-          source_hash: contentHash,
-          last_seen_at: new Date().toISOString(),
-          is_active: true,
-          enriched_at: new Date().toISOString(),
-        };
-
-        // Set enriched fields
-        if (extracted.pay_rate_hourly != null) jobData.pay_rate_hourly = extracted.pay_rate_hourly;
-        if (extracted.pay_package_total != null) jobData.pay_package_total = extracted.pay_package_total;
-        if (extracted.stipend_housing != null) jobData.stipend_housing = extracted.stipend_housing;
-        if (extracted.stipend_meals != null) jobData.stipend_meals = extracted.stipend_meals;
-        if (extracted.contract_weeks != null) jobData.contract_weeks = extracted.contract_weeks;
-        if (extracted.hours_per_week != null) jobData.hours_per_week = extracted.hours_per_week;
-        if (extracted.shift_type) jobData.shift_type = extracted.shift_type;
-        if (extracted.start_date) jobData.start_date = extracted.start_date;
-        if (extracted.requirements?.length > 0) jobData.requirements = extracted.requirements;
-        if (extracted.experience_required) jobData.experience_required = extracted.experience_required;
-        if (extracted.description) jobData.description = extracted.description;
-
-        if (existing) {
-          if (existing.source_hash === contentHash) {
-            // Same content — just refresh timestamps
-            await supabase
-              .from("job_postings")
-              .update({ last_seen_at: new Date().toISOString(), is_active: true })
-              .eq("id", existing.id);
-            results.jobs_skipped++;
-          } else {
-            // Content changed — full update
-            await supabase
-              .from("job_postings")
-              .update(jobData)
-              .eq("id", existing.id);
-            results.jobs_updated++;
+          if (!pageResult) {
+            results.errors.push({ facility: facility.name, message: `Could not fetch ${jobUrl}` });
+            continue;
           }
-        } else {
-          // New job — insert
-          const { error: insertErr } = await supabase
-            .from("job_postings")
-            .insert({
-              facility_id: facility.id,
-              source_url: jobUrl,
-              data_source: "scraped",
-              scraped_at: new Date().toISOString(),
-              ...jobData,
-            });
 
-          if (insertErr) {
-            if (insertErr.code === "23505") {
+          // Skip external redirects (Indeed, LinkedIn, etc.)
+          if (pageResult.skipped) {
+            results.errors.push({ facility: facility.name, message: `${pageResult.reason}: ${jobUrl}` });
+            continue;
+          }
+
+          if (pageResult.text.length < 50) {
+            results.errors.push({ facility: facility.name, message: `Page too short: ${jobUrl}` });
+            continue;
+          }
+
+          // Enrich with Gemini (inline — no separate step)
+          const extracted = await enrichWithGemini(pageResult.text, jobUrl);
+
+          // 300ms delay between Gemini calls
+          await new Promise((r) => setTimeout(r, 300));
+
+          if (!extracted) {
+            results.errors.push({ facility: facility.name, message: `Gemini parse failed for ${jobUrl}` });
+            continue;
+          }
+
+          // Skip if Gemini determined this is a staff/permanent job
+          if (extracted.is_contract === false) {
+            continue;
+          }
+
+          // Build the job title — prefer Gemini's extraction, fall back to link text
+          const linkEntry = allLinks.find((l) => l.url === jobUrl);
+          const title = extracted.title || linkEntry?.text || "Untitled";
+          const specialty = extracted.specialty || inferSpecialty(title);
+          const contentHash = hashContent(title + (extracted.description || "") + jobUrl);
+
+          // --- Phase 5: UPSERT ---
+          const { data: existing } = await supabase
+            .from("job_postings")
+            .select("id, source_hash")
+            .eq("source_url", jobUrl)
+            .maybeSingle();
+
+          const jobData: Record<string, unknown> = {
+            title,
+            specialty,
+            source_hash: contentHash,
+            last_seen_at: new Date().toISOString(),
+            is_active: true,
+            enriched_at: new Date().toISOString(),
+          };
+
+          // Set enriched fields
+          if (extracted.pay_rate_hourly != null) jobData.pay_rate_hourly = extracted.pay_rate_hourly;
+          if (extracted.pay_package_total != null) jobData.pay_package_total = extracted.pay_package_total;
+          if (extracted.stipend_housing != null) jobData.stipend_housing = extracted.stipend_housing;
+          if (extracted.stipend_meals != null) jobData.stipend_meals = extracted.stipend_meals;
+          if (extracted.contract_weeks != null) jobData.contract_weeks = extracted.contract_weeks;
+          if (extracted.hours_per_week != null) jobData.hours_per_week = extracted.hours_per_week;
+          if (extracted.shift_type) jobData.shift_type = extracted.shift_type;
+          if (extracted.start_date) jobData.start_date = extracted.start_date;
+          if (extracted.requirements?.length > 0) jobData.requirements = extracted.requirements;
+          if (extracted.experience_required) jobData.experience_required = extracted.experience_required;
+          if (extracted.description) jobData.description = extracted.description;
+
+          if (existing) {
+            if (existing.source_hash === contentHash) {
+              // Same content — just refresh timestamps
+              await supabase
+                .from("job_postings")
+                .update({ last_seen_at: new Date().toISOString(), is_active: true })
+                .eq("id", existing.id);
               results.jobs_skipped++;
             } else {
-              results.errors.push({ facility: facility.name, message: insertErr.message });
+              // Content changed — full update
+              await supabase
+                .from("job_postings")
+                .update(jobData)
+                .eq("id", existing.id);
+              results.jobs_updated++;
             }
           } else {
-            results.jobs_created++;
-            detail.jobs_saved++;
+            // New job — insert
+            const { error: insertErr } = await supabase
+              .from("job_postings")
+              .insert({
+                facility_id: facility.id,
+                source_url: jobUrl,
+                data_source: "scraped",
+                scraped_at: new Date().toISOString(),
+                ...jobData,
+              });
+
+            if (insertErr) {
+              if (insertErr.code === "23505") {
+                results.jobs_skipped++;
+              } else {
+                results.errors.push({ facility: facility.name, message: insertErr.message });
+              }
+            } else {
+              results.jobs_created++;
+              detail.jobs_saved++;
+            }
           }
+        } catch (urlErr) {
+          // Log the error and move on to the next URL — don't crash the batch
+          results.errors.push({
+            facility: facility.name,
+            message: `URL failed (${urlErr instanceof Error ? urlErr.message : "unknown"}): ${jobUrl}`,
+          });
+          continue;
         }
       }
 
