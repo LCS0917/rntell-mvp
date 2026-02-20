@@ -17,6 +17,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 
+// Allow up to 60s on Vercel (Pro plan) — default is 10s
+export const maxDuration = 60;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -442,15 +445,8 @@ export async function POST(request: NextRequest) {
           continue;
       }
 
-      // 4. Validate source URLs — filter out dead links
-      const validJobs: ScrapedJob[] = [];
-      for (const job of scrapedJobs) {
-        if (!job.source_url) continue;
-        const alive = await isUrlAlive(job.source_url);
-        if (alive) {
-          validJobs.push(job);
-        }
-      }
+      // 4. Filter jobs with valid source URLs
+      const validJobs = scrapedJobs.filter((j) => !!j.source_url);
 
       let facilityDeactivated = 0;
 
@@ -525,15 +521,11 @@ export async function POST(request: NextRequest) {
 
       for (const dbJob of activeDbJobs ?? []) {
         if (dbJob.source_url && !seenSourceUrls.has(dbJob.source_url)) {
-          // Double-check: HEAD the URL to confirm it's really dead
-          const stillAlive = await isUrlAlive(dbJob.source_url);
-          if (!stillAlive) {
-            await supabase
-              .from("job_postings")
-              .update({ is_active: false })
-              .eq("id", dbJob.id);
-            facilityDeactivated++;
-          }
+          await supabase
+            .from("job_postings")
+            .update({ is_active: false })
+            .eq("id", dbJob.id);
+          facilityDeactivated++;
         }
       }
 
