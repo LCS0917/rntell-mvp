@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
     const { data: row, error: insertError } = await supabase
       .from("contract_analyses")
       .insert({
-        nurse_id: user?.id ?? null,
+        nurse_id: null,
         session_id: sessionId,
         facility_name: input.facility_name || null,
         facility_city: input.city,
@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
         raw_contract_text: input.raw_contract_text ?? null,
         storage_path: input.storage_path ?? null,
         analysis_result: analysisResult,
-        is_claimed: !!user,
+        is_claimed: false,
       })
       .select("id")
       .single();
