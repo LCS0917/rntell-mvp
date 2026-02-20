@@ -222,17 +222,19 @@ export async function POST(request: NextRequest) {
     errors: [] as { id: string; title: string; message: string }[],
   };
 
-  // 3. Process in parallel batches of 5
-  const BATCH_SIZE = 5;
+  // 3. Process sequentially with delay to avoid Gemini rate limits (free tier)
+  const DELAY_MS = 1500; // 1.5s between Gemini calls
 
-  async function enrichJob(job: { id: string; title: string; source_url: string; specialty: string }) {
+  for (let i = 0; i < jobs.length; i++) {
+    const job = jobs[i] as { id: string; title: string; source_url: string; specialty: string };
+
     try {
       // Fetch page text
       const pageText = await fetchPageText(job.source_url);
       if (!pageText || pageText.length < 50) {
         results.errors.push({ id: job.id, title: job.title, message: "Could not fetch page or page too short" });
         results.jobs_failed++;
-        return;
+        continue;
       }
 
       // Extract with Gemini
@@ -240,7 +242,7 @@ export async function POST(request: NextRequest) {
       if (!extracted) {
         results.errors.push({ id: job.id, title: job.title, message: "Gemini returned unparseable response" });
         results.jobs_failed++;
-        return;
+        continue;
       }
 
       // Build update object — only set fields that Gemini actually extracted
@@ -282,11 +284,11 @@ export async function POST(request: NextRequest) {
       });
       results.jobs_failed++;
     }
-  }
 
-  for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
-    const batch = jobs.slice(i, i + BATCH_SIZE);
-    await Promise.all(batch.map((j) => enrichJob(j as { id: string; title: string; source_url: string; specialty: string })));
+    // Delay between jobs to respect Gemini rate limits
+    if (i < jobs.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+    }
   }
 
   return NextResponse.json(results);

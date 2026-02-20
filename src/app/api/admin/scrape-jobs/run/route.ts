@@ -486,24 +486,28 @@ export async function POST(request: NextRequest) {
             results.jobs_updated++;
           }
         } else {
-          const { error: insertErr } = await supabase
+          // Use upsert to gracefully handle duplicate source_url (e.g. shared Workday URLs across facilities)
+          const { error: upsertErr } = await supabase
             .from("job_postings")
-            .insert({
-              facility_id: facility.id,
-              title: job.title,
-              specialty: job.specialty,
-              description: job.description,
-              source_url: job.source_url,
-              source_hash: contentHash,
-              data_source: "scraped",
-              is_active: true,
-              scraped_at: new Date().toISOString(),
-              last_seen_at: new Date().toISOString(),
-              ...(job.shift_type && { shift_type: job.shift_type }),
-            });
+            .upsert(
+              {
+                facility_id: facility.id,
+                title: job.title,
+                specialty: job.specialty,
+                description: job.description,
+                source_url: job.source_url,
+                source_hash: contentHash,
+                data_source: "scraped",
+                is_active: true,
+                scraped_at: new Date().toISOString(),
+                last_seen_at: new Date().toISOString(),
+                ...(job.shift_type && { shift_type: job.shift_type }),
+              },
+              { onConflict: "source_url", ignoreDuplicates: true }
+            );
 
-          if (insertErr) {
-            results.errors.push({ facility: facility.name, message: insertErr.message });
+          if (upsertErr) {
+            results.errors.push({ facility: facility.name, message: upsertErr.message });
           } else {
             results.jobs_created++;
           }
