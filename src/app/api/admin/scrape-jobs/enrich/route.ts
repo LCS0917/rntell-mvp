@@ -128,19 +128,42 @@ async function extractWithGemini(pageText: string): Promise<EnrichedFields | nul
 async function fetchPageText(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
       headers: { "User-Agent": "Mozilla/5.0 (compatible; RNTell/1.0)" },
       redirect: "follow",
     });
     if (!res.ok) return null;
     const html = await res.text();
-    // Strip HTML tags and collapse whitespace
-    return html
+
+    // 1. Try extracting JSON-LD structured data first (Workday, many ATS use this)
+    const jsonLdMatches = [...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+    let jsonLdText = "";
+    for (const match of jsonLdMatches) {
+      try {
+        const data = JSON.parse(match[1]);
+        // Flatten the JSON-LD into readable text for Gemini
+        jsonLdText += JSON.stringify(data, null, 2) + "\n";
+      } catch {
+        // Skip malformed JSON-LD
+      }
+    }
+
+    // 2. Also extract visible text content (strip scripts, styles, tags)
+    const visibleText = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim();
+
+    // 3. Combine: JSON-LD first (structured), then visible text (may have more details)
+    const combined = (jsonLdText + "\n\n" + visibleText).trim();
+
+    // If we got meaningful JSON-LD, that alone is enough even if visible text is short
+    if (jsonLdText.length > 50) return combined;
+    // Otherwise, need at least 50 chars of visible text
+    if (visibleText.length < 50) return null;
+    return combined;
   } catch {
     return null;
   }
