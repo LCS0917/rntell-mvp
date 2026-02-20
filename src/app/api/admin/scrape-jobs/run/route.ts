@@ -108,7 +108,7 @@ async function fetchWorkdayJobs(careersUrl: string): Promise<FetchResult> {
           title: (p.title as string) || "Untitled",
           specialty: inferSpecialty((p.title as string) || ""),
           location: (p.locationsText as string) || "",
-          source_url: `https://${host}${p.externalPath as string}`,
+          source_url: `https://${host}/${site}${p.externalPath as string}`,
           description: (p.bulletFields as string[])?.join(". ") || "",
           shift_type: inferShift((p.title as string) || ""),
         }));
