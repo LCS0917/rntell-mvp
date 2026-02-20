@@ -341,21 +341,6 @@ function hashContent(content: string): string {
   return Math.abs(hash).toString(36);
 }
 
-/** HEAD-check a URL to verify it still resolves (not 404/gone). */
-async function isUrlAlive(url: string): Promise<boolean> {
-  try {
-    const res = await fetch(url, {
-      method: "HEAD",
-      headers: FETCH_HEADERS,
-      redirect: "follow",
-      signal: AbortSignal.timeout(5000),
-    });
-    return res.ok; // 200-299
-  } catch {
-    return false;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------

@@ -73,11 +73,16 @@ export default function ScraperClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(res.ok ? "Invalid response from server" : `Server error (HTTP ${res.status}) — likely timed out. Try filtering by state.`);
+      }
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || `HTTP ${res.status}`);
       }
-      const data = await res.json();
       setDetectResult(data);
       router.refresh();
     } catch (e) {
@@ -99,11 +104,20 @@ export default function ScraperClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(
+          res.ok
+            ? "Invalid response from server"
+            : `Server error (HTTP ${res.status}) — likely timed out. Try filtering by state.`
+        );
+      }
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || `HTTP ${res.status}`);
       }
-      const data = await res.json();
       setScrapeResult(data);
       router.refresh();
     } catch (e) {
