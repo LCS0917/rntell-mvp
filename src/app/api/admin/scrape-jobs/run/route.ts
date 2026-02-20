@@ -42,6 +42,11 @@ interface ScrapedJob {
   shift_type: string | null;
 }
 
+interface FetchResult {
+  jobs: ScrapedJob[];
+  debug?: string; // diagnostic info when 0 jobs found
+}
+
 // ---------------------------------------------------------------------------
 // ATS-specific fetchers — each returns up to 5 contract/travel nurse jobs
 // ---------------------------------------------------------------------------
@@ -51,12 +56,12 @@ const CONTRACT_KEYWORDS = ["travel", "contract", "per diem", "prn", "temp", "loc
 
 const FETCH_HEADERS = { "User-Agent": "Mozilla/5.0 (compatible; RNTell/1.0)" };
 
-async function fetchWorkdayJobs(careersUrl: string): Promise<ScrapedJob[]> {
+async function fetchWorkdayJobs(careersUrl: string): Promise<FetchResult> {
   try {
     const url = new URL(careersUrl);
     const host = url.host;
     const orgMatch = host.match(/^([^.]+)\./);
-    if (!orgMatch) return [];
+    if (!orgMatch) return { jobs: [], debug: "No org in host" };
     const org = orgMatch[1];
 
     // Filter out locale segments (en-US) and known path words
@@ -67,9 +72,11 @@ async function fetchWorkdayJobs(careersUrl: string): Promise<ScrapedJob[]> {
 
     // Try each candidate site name, plus "External" as fallback
     const candidates = [...new Set([...siteCandidates, "External"])];
+    const triedEndpoints: string[] = [];
 
     for (const site of candidates) {
       const apiUrl = `https://${host}/wday/cxs/${org}/${site}/jobs`;
+      triedEndpoints.push(`${site}→`);
       const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...FETCH_HEADERS },
@@ -78,20 +85,19 @@ async function fetchWorkdayJobs(careersUrl: string): Promise<ScrapedJob[]> {
           limit: 20,
           offset: 0,
           searchText: "nurse",
-          jobFamilyGroup: [],
-          timeType: [],
-          locationCountry: [],
           jobSortBy: "postedOn",
         }),
         signal: AbortSignal.timeout(10000),
       });
 
-      if (!res.ok) continue; // try next candidate
+      triedEndpoints[triedEndpoints.length - 1] += `${res.status}`;
+      if (!res.ok) continue;
       const data = await res.json();
       const postings = data.jobPostings ?? [];
+      triedEndpoints[triedEndpoints.length - 1] += `(${postings.length} raw)`;
       if (postings.length === 0) continue;
 
-      return postings
+      const filtered = postings
         .filter((p: Record<string, unknown>) => {
           const title = ((p.title as string) || "").toLowerCase();
           const hasPath = !!(p.externalPath as string);
@@ -106,28 +112,27 @@ async function fetchWorkdayJobs(careersUrl: string): Promise<ScrapedJob[]> {
           description: (p.bulletFields as string[])?.join(". ") || "",
           shift_type: inferShift((p.title as string) || ""),
         }));
+
+      return { jobs: filtered, debug: triedEndpoints.join(", ") };
     }
-    return [];
-  } catch {
-    return [];
+    return { jobs: [], debug: `Tried: ${triedEndpoints.join(", ")}` };
+  } catch (err) {
+    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
-async function fetchGreenhouseJobs(careersUrl: string): Promise<ScrapedJob[]> {
+async function fetchGreenhouseJobs(careersUrl: string): Promise<FetchResult> {
   try {
     const url = new URL(careersUrl);
     const board = url.pathname.split("/").filter(Boolean)[0] || "";
-    if (!board) return [];
+    if (!board) return { jobs: [], debug: "No board in path" };
 
     const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${board}/jobs?content=true&updated_after=${new Date(Date.now() - 30 * 86400000).toISOString()}`;
-    const res = await fetch(apiUrl, {
-      signal: AbortSignal.timeout(10000),
-      headers: FETCH_HEADERS,
-    });
-    if (!res.ok) return [];
+    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(10000), headers: FETCH_HEADERS });
+    if (!res.ok) return { jobs: [], debug: `HTTP ${res.status}` };
     const data = await res.json();
 
-    return (data.jobs ?? [])
+    const jobs = (data.jobs ?? [])
       .filter((j: Record<string, unknown>) => {
         const title = ((j.title as string) || "").toLowerCase();
         return NURSE_KEYWORDS.some((kw) => title.includes(kw));
@@ -141,26 +146,24 @@ async function fetchGreenhouseJobs(careersUrl: string): Promise<ScrapedJob[]> {
         description: stripHtml((j.content as string) || "").slice(0, 500),
         shift_type: inferShift((j.title as string) || ""),
       }));
-  } catch {
-    return [];
+    return { jobs, debug: `${(data.jobs ?? []).length} raw, ${jobs.length} after filter` };
+  } catch (err) {
+    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
-async function fetchLeverJobs(careersUrl: string): Promise<ScrapedJob[]> {
+async function fetchLeverJobs(careersUrl: string): Promise<FetchResult> {
   try {
     const url = new URL(careersUrl);
     const company = url.pathname.split("/").filter(Boolean)[0] || "";
-    if (!company) return [];
+    if (!company) return { jobs: [], debug: "No company in path" };
 
     const apiUrl = `https://api.lever.co/v0/postings/${company}?mode=json&sort=createdAt&direction=desc`;
-    const res = await fetch(apiUrl, {
-      signal: AbortSignal.timeout(10000),
-      headers: FETCH_HEADERS,
-    });
-    if (!res.ok) return [];
-    const jobs: Record<string, unknown>[] = await res.json();
+    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(10000), headers: FETCH_HEADERS });
+    if (!res.ok) return { jobs: [], debug: `HTTP ${res.status}` };
+    const rawJobs: Record<string, unknown>[] = await res.json();
 
-    return jobs
+    const jobs = rawJobs
       .filter((j) => {
         const title = ((j.text as string) || "").toLowerCase();
         return NURSE_KEYWORDS.some((kw) => title.includes(kw));
@@ -174,26 +177,24 @@ async function fetchLeverJobs(careersUrl: string): Promise<ScrapedJob[]> {
         description: stripHtml((j.descriptionPlain as string) || (j.description as string) || "").slice(0, 500),
         shift_type: inferShift((j.text as string) || ""),
       }));
-  } catch {
-    return [];
+    return { jobs, debug: `${rawJobs.length} raw, ${jobs.length} after filter` };
+  } catch (err) {
+    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
-async function fetchSmartRecruitersJobs(careersUrl: string): Promise<ScrapedJob[]> {
+async function fetchSmartRecruitersJobs(careersUrl: string): Promise<FetchResult> {
   try {
     const url = new URL(careersUrl);
     const company = url.pathname.split("/").filter(Boolean)[0] || "";
-    if (!company) return [];
+    if (!company) return { jobs: [], debug: "No company in path" };
 
     const apiUrl = `https://api.smartrecruiters.com/v1/companies/${company}/postings?q=nurse&limit=20&sort=posted&order=desc`;
-    const res = await fetch(apiUrl, {
-      signal: AbortSignal.timeout(10000),
-      headers: FETCH_HEADERS,
-    });
-    if (!res.ok) return [];
+    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(10000), headers: FETCH_HEADERS });
+    if (!res.ok) return { jobs: [], debug: `HTTP ${res.status}` };
     const data = await res.json();
 
-    return (data.content ?? [])
+    const jobs = (data.content ?? [])
       .filter((j: Record<string, unknown>) => {
         const title = ((j.name as string) || "").toLowerCase();
         return NURSE_KEYWORDS.some((kw) => title.includes(kw));
@@ -207,38 +208,30 @@ async function fetchSmartRecruitersJobs(careersUrl: string): Promise<ScrapedJob[
         description: "",
         shift_type: inferShift((j.name as string) || ""),
       }));
-  } catch {
-    return [];
+    return { jobs, debug: `${(data.content ?? []).length} raw, ${jobs.length} after filter` };
+  } catch (err) {
+    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
-async function fetchAvatureJobs(careersUrl: string): Promise<ScrapedJob[]> {
-  // Avature doesn't have a public JSON API — scrape from career page HTML
-  // The saved URL might be a deep link (e.g. ?jobId=1014&source=...), so strip to base path
+async function fetchAvatureJobs(careersUrl: string): Promise<FetchResult> {
   try {
     const parsedUrl = new URL(careersUrl);
     const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`;
 
-    // Try fetching the base talent network page (job listing)
     const res = await fetch(baseUrl, {
       signal: AbortSignal.timeout(10000),
       headers: FETCH_HEADERS,
       redirect: "follow",
     });
-    if (!res.ok) return [];
+    if (!res.ok) return { jobs: [], debug: `HTTP ${res.status} from ${baseUrl}` };
     const html = await res.text();
 
-    // Avature job links typically contain jobId in query string or have /opportunities/ paths
-    // Pattern 1: links with jobId param (same talent network)
     const jobIdMatches = [...html.matchAll(/<a[^>]+href=["']([^"']*jobId=\d+[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)];
-
-    // Pattern 2: links with /job/ or /opportunities/ in path
     const pathMatches = [...html.matchAll(/<a[^>]+href=["']([^"']*(?:\/job[s]?\/|\/opportunities\/)[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)];
-
     const allMatches = [...jobIdMatches, ...pathMatches];
 
-    // Extract clean title text (strip inner HTML tags)
-    return allMatches
+    const jobs = allMatches
       .map(([, href, rawTitle]) => ({
         href,
         title: rawTitle.replace(/<[^>]+>/g, "").trim(),
@@ -257,32 +250,28 @@ async function fetchAvatureJobs(careersUrl: string): Promise<ScrapedJob[]> {
         description: "",
         shift_type: inferShift(title),
       }));
-  } catch {
-    return [];
+    return { jobs, debug: `${allMatches.length} links found, ${jobs.length} after filter` };
+  } catch (err) {
+    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
-async function fetchTaleoJobs(careersUrl: string): Promise<ScrapedJob[]> {
-  // Taleo (Oracle) — try the REST API pattern
+async function fetchTaleoJobs(careersUrl: string): Promise<FetchResult> {
   try {
-    // Taleo URLs often look like: https://company.taleo.net/careersection/...
-    // The API endpoint is: https://company.taleo.net/careersection/rest/jobboard/searchjobs
     const url = new URL(careersUrl);
     const baseTaleo = `${url.protocol}//${url.host}`;
 
-    // Try fetching the career page HTML for job links
     const res = await fetch(careersUrl, {
       signal: AbortSignal.timeout(10000),
       headers: FETCH_HEADERS,
       redirect: "follow",
     });
-    if (!res.ok) return [];
+    if (!res.ok) return { jobs: [], debug: `HTTP ${res.status}` };
     const html = await res.text();
 
-    // Extract job links from Taleo HTML
     const jobMatches = [...html.matchAll(/<a[^>]+href=["']([^"']*(?:jobdetail|requisition)[^"']*)["'][^>]*>([^<]*)</gi)];
 
-    return jobMatches
+    const jobs = jobMatches
       .filter(([, , title]) => {
         const t = (title || "").toLowerCase();
         return NURSE_KEYWORDS.some((kw) => t.includes(kw));
@@ -296,8 +285,9 @@ async function fetchTaleoJobs(careersUrl: string): Promise<ScrapedJob[]> {
         description: "",
         shift_type: inferShift(title),
       }));
-  } catch {
-    return [];
+    return { jobs, debug: `${jobMatches.length} links found, ${jobs.length} after filter` };
+  } catch (err) {
+    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
@@ -411,7 +401,7 @@ export async function POST(request: NextRequest) {
     jobs_updated: 0,
     jobs_skipped: 0,
     jobs_deactivated: 0,
-    details: [] as { name: string; ats_type: string; jobs_found: number; jobs_deactivated: number }[],
+    details: [] as { name: string; ats_type: string; jobs_found: number; jobs_deactivated: number; debug?: string }[],
     errors: [] as { facility: string; message: string }[],
   };
 
@@ -420,33 +410,33 @@ export async function POST(request: NextRequest) {
     results.facilities_processed++;
 
     try {
-      let scrapedJobs: ScrapedJob[] = [];
+      let fetchResult: FetchResult = { jobs: [] };
 
       switch (facility.ats_type) {
         case "workday":
-          scrapedJobs = await fetchWorkdayJobs(facility.careers_url);
+          fetchResult = await fetchWorkdayJobs(facility.careers_url);
           break;
         case "greenhouse":
-          scrapedJobs = await fetchGreenhouseJobs(facility.careers_url);
+          fetchResult = await fetchGreenhouseJobs(facility.careers_url);
           break;
         case "lever":
-          scrapedJobs = await fetchLeverJobs(facility.careers_url);
+          fetchResult = await fetchLeverJobs(facility.careers_url);
           break;
         case "smartrecruiters":
-          scrapedJobs = await fetchSmartRecruitersJobs(facility.careers_url);
+          fetchResult = await fetchSmartRecruitersJobs(facility.careers_url);
           break;
         case "avature":
-          scrapedJobs = await fetchAvatureJobs(facility.careers_url);
+          fetchResult = await fetchAvatureJobs(facility.careers_url);
           break;
         case "taleo":
-          scrapedJobs = await fetchTaleoJobs(facility.careers_url);
+          fetchResult = await fetchTaleoJobs(facility.careers_url);
           break;
         default:
           continue;
       }
 
       // 4. Filter jobs with valid source URLs
-      const validJobs = scrapedJobs.filter((j) => !!j.source_url);
+      const validJobs = fetchResult.jobs.filter((j) => !!j.source_url);
 
       let facilityDeactivated = 0;
 
@@ -536,6 +526,7 @@ export async function POST(request: NextRequest) {
         ats_type: facility.ats_type,
         jobs_found: validJobs.length,
         jobs_deactivated: facilityDeactivated,
+        debug: fetchResult.debug,
       });
     } catch (e) {
       results.errors.push({
