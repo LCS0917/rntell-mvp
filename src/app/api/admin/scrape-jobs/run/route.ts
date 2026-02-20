@@ -58,43 +58,48 @@ async function fetchWorkdayJobs(careersUrl: string): Promise<ScrapedJob[]> {
 
     // Filter out locale segments (en-US) and known path words
     const pathParts = url.pathname.split("/").filter(Boolean);
-    const site = pathParts.find(
-      (p) => !p.match(/^[a-z]{2}(-[A-Z]{2})?$/) && p !== "jobs" && p !== "login"
-    ) || pathParts[0] || "External";
+    const siteCandidates = pathParts.filter(
+      (p) => !/^[a-z]{2}(-[A-Z]{2})?$/.test(p) && p !== "jobs" && p !== "login"
+    );
 
-    const apiUrl = `https://${host}/wday/cxs/${org}/${site}/jobs`;
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...FETCH_HEADERS },
-      body: JSON.stringify({
-        appliedFacets: {},
-        limit: 20,
-        offset: 0,
-        searchText: "travel nurse",
-      }),
-      signal: AbortSignal.timeout(10000),
-    });
+    // Try each candidate site name, plus "External" as fallback
+    const candidates = [...new Set([...siteCandidates, "External"])];
 
-    if (!res.ok) return [];
-    const data = await res.json();
-    const postings = data.jobPostings ?? [];
+    for (const site of candidates) {
+      const apiUrl = `https://${host}/wday/cxs/${org}/${site}/jobs`;
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...FETCH_HEADERS },
+        body: JSON.stringify({
+          appliedFacets: {},
+          limit: 20,
+          offset: 0,
+          searchText: "nurse",
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
 
-    // Filter for nursing + contract/travel, take up to 5
-    return postings
-      .filter((p: Record<string, unknown>) => {
-        const title = ((p.title as string) || "").toLowerCase();
-        const isNurse = NURSE_KEYWORDS.some((kw) => title.includes(kw));
-        return isNurse;
-      })
-      .slice(0, 5)
-      .map((p: Record<string, unknown>) => ({
-        title: (p.title as string) || "Untitled",
-        specialty: inferSpecialty((p.title as string) || ""),
-        location: (p.locationsText as string) || "",
-        source_url: `https://${host}${(p.externalPath as string) || ""}`,
-        description: (p.bulletFields as string[])?.join(". ") || "",
-        shift_type: inferShift((p.title as string) || ""),
-      }));
+      if (!res.ok) continue; // try next candidate
+      const data = await res.json();
+      const postings = data.jobPostings ?? [];
+      if (postings.length === 0) continue;
+
+      return postings
+        .filter((p: Record<string, unknown>) => {
+          const title = ((p.title as string) || "").toLowerCase();
+          return NURSE_KEYWORDS.some((kw) => title.includes(kw));
+        })
+        .slice(0, 5)
+        .map((p: Record<string, unknown>) => ({
+          title: (p.title as string) || "Untitled",
+          specialty: inferSpecialty((p.title as string) || ""),
+          location: (p.locationsText as string) || "",
+          source_url: `https://${host}${(p.externalPath as string) || ""}`,
+          description: (p.bulletFields as string[])?.join(". ") || "",
+          shift_type: inferShift((p.title as string) || ""),
+        }));
+    }
+    return [];
   } catch {
     return [];
   }
@@ -201,8 +206,13 @@ async function fetchSmartRecruitersJobs(careersUrl: string): Promise<ScrapedJob[
 
 async function fetchAvatureJobs(careersUrl: string): Promise<ScrapedJob[]> {
   // Avature doesn't have a public JSON API — scrape from career page HTML
+  // The saved URL might be a deep link (e.g. ?jobId=1014&source=...), so strip to base path
   try {
-    const res = await fetch(careersUrl, {
+    const parsedUrl = new URL(careersUrl);
+    const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`;
+
+    // Try fetching the base talent network page (job listing)
+    const res = await fetch(baseUrl, {
       signal: AbortSignal.timeout(10000),
       headers: FETCH_HEADERS,
       redirect: "follow",
@@ -210,39 +220,32 @@ async function fetchAvatureJobs(careersUrl: string): Promise<ScrapedJob[]> {
     if (!res.ok) return [];
     const html = await res.text();
 
-    // Look for job listing links and titles in HTML
-    // Avature pages typically have structured job cards with links
-    const jobMatches = [...html.matchAll(/<a[^>]+href=["']([^"']*\/opportunities\/[^"']*)["'][^>]*>([^<]*)</gi)];
-    if (jobMatches.length === 0) {
-      // Try alternative pattern — some Avature sites use different URL structure
-      const altMatches = [...html.matchAll(/<a[^>]+href=["']([^"']*\/job[s]?\/[^"']*)["'][^>]*>([^<]*)</gi)];
-      return altMatches
-        .filter(([, , title]) => {
-          const t = (title || "").toLowerCase();
-          return NURSE_KEYWORDS.some((kw) => t.includes(kw));
-        })
-        .slice(0, 5)
-        .map(([, url, title]) => ({
-          title: title.trim() || "Untitled",
-          specialty: inferSpecialty(title),
-          location: "",
-          source_url: url.startsWith("http") ? url : new URL(url, careersUrl).href,
-          description: "",
-          shift_type: inferShift(title),
-        }));
-    }
+    // Avature job links typically contain jobId in query string or have /opportunities/ paths
+    // Pattern 1: links with jobId param (same talent network)
+    const jobIdMatches = [...html.matchAll(/<a[^>]+href=["']([^"']*jobId=\d+[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)];
 
-    return jobMatches
-      .filter(([, , title]) => {
-        const t = (title || "").toLowerCase();
+    // Pattern 2: links with /job/ or /opportunities/ in path
+    const pathMatches = [...html.matchAll(/<a[^>]+href=["']([^"']*(?:\/job[s]?\/|\/opportunities\/)[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)];
+
+    const allMatches = [...jobIdMatches, ...pathMatches];
+
+    // Extract clean title text (strip inner HTML tags)
+    return allMatches
+      .map(([, href, rawTitle]) => ({
+        href,
+        title: rawTitle.replace(/<[^>]+>/g, "").trim(),
+      }))
+      .filter(({ title }) => {
+        if (!title || title.length < 5) return false;
+        const t = title.toLowerCase();
         return NURSE_KEYWORDS.some((kw) => t.includes(kw));
       })
       .slice(0, 5)
-      .map(([, url, title]) => ({
-        title: title.trim() || "Untitled",
+      .map(({ href, title }) => ({
+        title,
         specialty: inferSpecialty(title),
         location: "",
-        source_url: url.startsWith("http") ? url : new URL(url, careersUrl).href,
+        source_url: href.startsWith("http") ? href : new URL(href, baseUrl).href,
         description: "",
         shift_type: inferShift(title),
       }));
