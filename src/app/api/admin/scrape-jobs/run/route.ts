@@ -75,6 +75,10 @@ async function fetchWorkdayJobs(careersUrl: string): Promise<ScrapedJob[]> {
           limit: 20,
           offset: 0,
           searchText: "nurse",
+          jobFamilyGroup: [],
+          timeType: [],
+          locationCountry: [],
+          jobSortBy: "postedOn",
         }),
         signal: AbortSignal.timeout(10000),
       });
@@ -112,7 +116,7 @@ async function fetchGreenhouseJobs(careersUrl: string): Promise<ScrapedJob[]> {
     const board = url.pathname.split("/").filter(Boolean)[0] || "";
     if (!board) return [];
 
-    const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${board}/jobs?content=true`;
+    const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${board}/jobs?content=true&updated_after=${new Date(Date.now() - 30 * 86400000).toISOString()}`;
     const res = await fetch(apiUrl, {
       signal: AbortSignal.timeout(10000),
       headers: FETCH_HEADERS,
@@ -145,7 +149,7 @@ async function fetchLeverJobs(careersUrl: string): Promise<ScrapedJob[]> {
     const company = url.pathname.split("/").filter(Boolean)[0] || "";
     if (!company) return [];
 
-    const apiUrl = `https://api.lever.co/v0/postings/${company}?mode=json`;
+    const apiUrl = `https://api.lever.co/v0/postings/${company}?mode=json&sort=createdAt&direction=desc`;
     const res = await fetch(apiUrl, {
       signal: AbortSignal.timeout(10000),
       headers: FETCH_HEADERS,
@@ -178,7 +182,7 @@ async function fetchSmartRecruitersJobs(careersUrl: string): Promise<ScrapedJob[
     const company = url.pathname.split("/").filter(Boolean)[0] || "";
     if (!company) return [];
 
-    const apiUrl = `https://api.smartrecruiters.com/v1/companies/${company}/postings?q=nurse&limit=20`;
+    const apiUrl = `https://api.smartrecruiters.com/v1/companies/${company}/postings?q=nurse&limit=20&sort=posted&order=desc`;
     const res = await fetch(apiUrl, {
       signal: AbortSignal.timeout(10000),
       headers: FETCH_HEADERS,
