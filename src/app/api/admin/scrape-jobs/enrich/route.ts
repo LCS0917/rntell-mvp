@@ -1,9 +1,13 @@
 /**
  * POST /api/admin/scrape-jobs/enrich
  * -----------------------------------
- * Step 3: For scraped jobs that haven't been enriched yet, fetch the
+ * Step 3 (catch-up): For scraped jobs that were NOT enriched during the
+ * Gemini-First pipeline (e.g. legacy jobs, failed enrichments), fetch the
  * source_url page and use Gemini 2.5 Flash-Lite (JSON mode) to extract
  * structured data (pay, hours, certs, experience, etc.) then update the DB.
+ *
+ * NOTE: The main Step 2 pipeline now enriches inline. This route handles
+ * leftovers only.
  *
  * Request body:
  *   { limit?: number }  — max jobs to enrich (default 20)

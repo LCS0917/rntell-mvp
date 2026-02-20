@@ -1,23 +1,22 @@
 /**
  * POST /api/admin/scrape-jobs/run
  * --------------------------------
- * Step 2: For facilities with a known ATS, fetches up to 5 recent
- * contract/travel nurse jobs from each ATS endpoint and upserts into
- * job_postings.
+ * "Gemini-First" pipeline: For each facility, finds the careers/jobs page,
+ * scrapes ALL anchor tags, asks Gemini to pick the top 5 travel/contract
+ * nurse URLs, fetches those pages, enriches inline, and upserts.
  *
  * Request body:
  *   { state?: string }
  *
  * Returns:
  *   { facilities_processed, jobs_created, jobs_updated, jobs_skipped,
- *     jobs_deactivated, details: { name, ats_type, jobs_found }[], errors[] }
+ *     jobs_deactivated, details[], errors[] }
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Allow up to 120s on Vercel (Pro plan) — default is 10s
 export const maxDuration = 120;
 
 // ---------------------------------------------------------------------------
@@ -27,268 +26,386 @@ export const maxDuration = 120;
 interface FacilityRow {
   id: string;
   name: string;
-  careers_url: string;
-  ats_type: string;
+  website: string | null;
+  careers_url: string | null;
+  ats_type: string | null;
   location_state: string | null;
   location_city: string | null;
 }
 
-interface ScrapedJob {
-  title: string;
-  specialty: string;
-  location: string;
-  source_url: string;
-  description: string;
+interface LinkEntry {
+  text: string;
+  url: string;
+}
+
+interface EnrichedFields {
+  is_contract?: boolean;
+  pay_rate_hourly: number | null;
+  pay_package_total: number | null;
+  stipend_housing: number | null;
+  stipend_meals: number | null;
+  contract_weeks: number | null;
+  hours_per_week: number | null;
   shift_type: string | null;
+  start_date: string | null;
+  requirements: string[];
+  experience_required: string | null;
+  description: string | null;
+  title?: string | null;
+  specialty?: string | null;
 }
 
-interface FetchResult {
-  jobs: ScrapedJob[];
-  debug?: string; // diagnostic info when 0 jobs found
+interface FacilityDetail {
+  name: string;
+  careers_url: string | null;
+  links_found: number;
+  gemini_selected: number;
+  jobs_saved: number;
+  jobs_deactivated: number;
+  debug?: string;
 }
 
 // ---------------------------------------------------------------------------
-// ATS-specific fetchers — each returns up to 5 contract/travel nurse jobs
+// Constants
 // ---------------------------------------------------------------------------
-
-const NURSE_KEYWORDS = ["nurse", "rn ", "travel rn", "contract rn", "nursing", "registered nurse"];
-const CONTRACT_KEYWORDS = ["travel", "contract", "per diem", "prn", "temp", "locum"];
 
 const FETCH_HEADERS = { "User-Agent": "Mozilla/5.0 (compatible; RNTell/1.0)" };
 
-async function fetchWorkdayJobs(careersUrl: string): Promise<FetchResult> {
-  try {
-    const url = new URL(careersUrl);
-    const host = url.host;
-    const orgMatch = host.match(/^([^.]+)\./);
-    if (!orgMatch) return { jobs: [], debug: "No org in host" };
-    const org = orgMatch[1];
+const CAREER_PATHS = [
+  "/careers", "/jobs", "/career", "/job-opportunities", "/employment",
+  "/work-with-us", "/join-our-team", "/nursing-careers", "/nursing-jobs",
+];
 
-    // Filter out locale segments (en-US) and known path words
-    const pathParts = url.pathname.split("/").filter(Boolean);
-    const siteCandidates = pathParts.filter(
-      (p) => !/^[a-z]{2}(-[A-Z]{2})?$/.test(p) && p !== "jobs" && p !== "login"
+// ---------------------------------------------------------------------------
+// Step 1: Find careers page and scrape ALL anchor tags
+// ---------------------------------------------------------------------------
+
+async function safeFetch(url: string, timeoutMs = 8000): Promise<{ html: string; finalUrl: string } | null> {
+  try {
+    const res = await fetch(url, {
+      redirect: "follow",
+      headers: FETCH_HEADERS,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    return { html, finalUrl: res.url };
+  } catch {
+    return null;
+  }
+}
+
+/** Find the main careers/jobs page URL for a facility */
+async function findCareersPage(facility: FacilityRow): Promise<string | null> {
+  // If we already have a careers_url from a previous discover run, use it
+  if (facility.careers_url) return facility.careers_url;
+  if (!facility.website) return null;
+
+  let baseUrl = facility.website.trim();
+  if (!baseUrl.startsWith("http")) baseUrl = "https://" + baseUrl;
+  baseUrl = baseUrl.replace(/\/+$/, "");
+
+  // Try fetching the main page and looking for career links
+  const mainPage = await safeFetch(baseUrl, 5000);
+  if (mainPage) {
+    const careerKeywords = /career|jobs|employment|join|work-with-us|nursing|talent|opportunities/i;
+    const hrefMatches = [...mainPage.html.matchAll(/href=["']([^"']+)["']/gi)];
+    for (const [, href] of hrefMatches) {
+      if (careerKeywords.test(href)) {
+        const absolute = href.startsWith("http") ? href : href.startsWith("/") ? baseUrl + href : baseUrl + "/" + href;
+        return absolute;
+      }
+    }
+  }
+
+  // Probe common career paths
+  for (const path of CAREER_PATHS) {
+    const probeUrl = baseUrl + path;
+    const page = await safeFetch(probeUrl, 3000);
+    if (page) return page.finalUrl;
+  }
+
+  return null;
+}
+
+/** Scrape all anchor tags from a page. Returns { text, url } pairs. */
+async function scrapeAllLinks(pageUrl: string): Promise<LinkEntry[]> {
+  const page = await safeFetch(pageUrl);
+  if (!page) return [];
+
+  const baseUrl = new URL(pageUrl);
+  const links: LinkEntry[] = [];
+  const seen = new Set<string>();
+
+  // Match all <a> tags with href and inner text
+  const anchorMatches = [...page.html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
+
+  for (const [, href, rawText] of anchorMatches) {
+    if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) continue;
+
+    const text = rawText.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    if (!text || text.length < 3) continue;
+
+    // Make URL absolute
+    let absoluteUrl: string;
+    try {
+      absoluteUrl = href.startsWith("http") ? href : new URL(href, baseUrl).href;
+    } catch {
+      continue;
+    }
+
+    // Deduplicate by URL
+    if (seen.has(absoluteUrl)) continue;
+    seen.add(absoluteUrl);
+
+    links.push({ text, url: absoluteUrl });
+  }
+
+  // Also follow pagination / "view all jobs" patterns and scrape those pages
+  const viewAllPattern = /view\s*all|see\s*all|all\s*jobs|all\s*openings|all\s*positions|more\s*jobs|show\s*more/i;
+  const viewAllLink = links.find((l) => viewAllPattern.test(l.text));
+  if (viewAllLink) {
+    const subPage = await safeFetch(viewAllLink.url, 5000);
+    if (subPage) {
+      const subAnchors = [...subPage.html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
+      for (const [, href, rawText] of subAnchors) {
+        if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) continue;
+        const text = rawText.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+        if (!text || text.length < 3) continue;
+        let absoluteUrl: string;
+        try {
+          absoluteUrl = href.startsWith("http") ? href : new URL(href, new URL(viewAllLink.url)).href;
+        } catch {
+          continue;
+        }
+        if (seen.has(absoluteUrl)) continue;
+        seen.add(absoluteUrl);
+        links.push({ text, url: absoluteUrl });
+      }
+    }
+  }
+
+  return links;
+}
+
+// ---------------------------------------------------------------------------
+// Step 2: Gemini link selection — pick top 5 travel nurse URLs
+// ---------------------------------------------------------------------------
+
+const LINK_SELECTION_PROMPT = `You are a travel nursing job expert. From the list of links below, identify the URLs most likely to be **Travel Nurse** or **Contract Nursing** job postings.
+
+SELECTION RULES:
+- Pick up to 5 URLs that look like individual job postings for travel, contract, per diem, or locum nursing roles.
+- EXPLICITLY IGNORE links that mention: "Staff", "Permanent", "FTE", "Full-Time Employee", "Residency", "New Grad", "Internship", "Volunteer", "Student", "Fellowship".
+- EXPLICITLY IGNORE links that are clearly navigation (About Us, Contact, Benefits, Login, Apply Now without a specific job, etc.)
+- PREFER links whose text mentions: travel, contract, RN, nurse, nursing, per diem, assignment, 13 weeks, stipend, ICU, ER, OR, Med/Surg, etc.
+- If no links look like travel/contract nursing jobs, return an empty array.
+
+Return ONLY a JSON array of the selected URLs (strings). No markdown, no explanation.
+Example: ["https://example.com/job/123", "https://example.com/job/456"]`;
+
+async function selectLinksWithGemini(links: LinkEntry[]): Promise<string[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY not set");
+
+  // Format links as numbered list for Gemini
+  const linkList = links
+    .slice(0, 150) // Cap at 150 links to stay within token limits
+    .map((l, i) => `${i + 1}. "${l.text}" → ${l.url}`)
+    .join("\n");
+
+  const payload = {
+    contents: [{
+      parts: [
+        { text: LINK_SELECTION_PROMPT },
+        { text: `\n\nLinks found on the careers page:\n${linkList}` },
+      ],
+    }],
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 512,
+      response_mime_type: "application/json",
+    },
+  };
+
+  const MAX_RETRIES = 2;
+  const BACKOFF_MS = [1000, 2000];
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt - 1]));
+    }
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
+      }
     );
 
-    // Try each candidate site name, plus "External" as fallback
-    const candidates = [...new Set([...siteCandidates, "External"])];
-    const triedEndpoints: string[] = [];
-
-    for (const site of candidates) {
-      const apiUrl = `https://${host}/wday/cxs/${org}/${site}/jobs`;
-      triedEndpoints.push(`${site}→`);
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...FETCH_HEADERS },
-        body: JSON.stringify({
-          appliedFacets: {},
-          limit: 20,
-          offset: 0,
-          searchText: "nurse",
-          jobSortBy: "postedOn",
-        }),
-        signal: AbortSignal.timeout(10000),
-      });
-
-      triedEndpoints[triedEndpoints.length - 1] += `${res.status}`;
-      if (!res.ok) continue;
-      const data = await res.json();
-      const postings = data.jobPostings ?? [];
-      triedEndpoints[triedEndpoints.length - 1] += `(${postings.length} raw)`;
-      if (postings.length === 0) continue;
-
-      const filtered = postings
-        .filter((p: Record<string, unknown>) => {
-          const title = ((p.title as string) || "").toLowerCase();
-          const hasPath = !!(p.externalPath as string);
-          return hasPath && NURSE_KEYWORDS.some((kw) => title.includes(kw));
-        })
-        .slice(0, 5)
-        .map((p: Record<string, unknown>) => ({
-          title: (p.title as string) || "Untitled",
-          specialty: inferSpecialty((p.title as string) || ""),
-          location: (p.locationsText as string) || "",
-          source_url: `https://${host}/${site}${p.externalPath as string}`,
-          description: (p.bulletFields as string[])?.join(". ") || "",
-          shift_type: inferShift((p.title as string) || ""),
-        }));
-
-      return { jobs: filtered, debug: triedEndpoints.join(", ") };
+    if (res.status === 429 && attempt < MAX_RETRIES) continue;
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Gemini link selection ${res.status}: ${errText.slice(0, 200)}`);
     }
-    return { jobs: [], debug: `Tried: ${triedEndpoints.join(", ")}` };
-  } catch (err) {
-    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
-  }
-}
 
-async function fetchGreenhouseJobs(careersUrl: string): Promise<FetchResult> {
-  try {
-    const url = new URL(careersUrl);
-    const board = url.pathname.split("/").filter(Boolean)[0] || "";
-    if (!board) return { jobs: [], debug: "No board in path" };
-
-    const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${board}/jobs?content=true&updated_after=${new Date(Date.now() - 30 * 86400000).toISOString()}`;
-    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(10000), headers: FETCH_HEADERS });
-    if (!res.ok) return { jobs: [], debug: `HTTP ${res.status}` };
     const data = await res.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const cleaned = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
-    const jobs = (data.jobs ?? [])
-      .filter((j: Record<string, unknown>) => {
-        const title = ((j.title as string) || "").toLowerCase();
-        return NURSE_KEYWORDS.some((kw) => title.includes(kw));
-      })
-      .slice(0, 5)
-      .map((j: Record<string, unknown>) => ({
-        title: (j.title as string) || "Untitled",
-        specialty: inferSpecialty((j.title as string) || ""),
-        location: ((j.location as Record<string, string>)?.name) || "",
-        source_url: (j.absolute_url as string) || "",
-        description: stripHtml((j.content as string) || "").slice(0, 500),
-        shift_type: inferShift((j.title as string) || ""),
-      }));
-    return { jobs, debug: `${(data.jobs ?? []).length} raw, ${jobs.length} after filter` };
-  } catch (err) {
-    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
+    try {
+      const urls = JSON.parse(cleaned);
+      if (Array.isArray(urls)) {
+        return urls.filter((u: unknown) => typeof u === "string").slice(0, 5);
+      }
+    } catch {
+      // If Gemini returned something unparseable, return empty
+    }
+    return [];
   }
+
+  return [];
 }
 
-async function fetchLeverJobs(careersUrl: string): Promise<FetchResult> {
+// ---------------------------------------------------------------------------
+// Step 3: Fetch page text + Gemini enrichment (inline)
+// ---------------------------------------------------------------------------
+
+const EXTRACTION_PROMPT = `You are a data extraction expert for travel nursing job postings. Extract job details into raw JSON. Do not include markdown formatting or conversational filler. Use null for missing values.
+
+FIRST: Determine if this is a Contract/Travel nursing role or a Staff/Permanent position.
+If it is clearly a Staff or Permanent role (not travel/contract), return ONLY: {"is_contract": false}
+If it IS a contract/travel role (or unclear), proceed with full extraction and include "is_contract": true.
+
+Fields:
+- is_contract: boolean (true if contract/travel, false if staff/permanent)
+- title: string or null (the job title as stated)
+- specialty: string or null — one of: ICU, ER, OR, L&D, NICU, PICU, Peds, Med/Surg, Oncology, Cardiac, Telemetry, Psych, Rehab, Home Health, Dialysis, Infusion, Endoscopy, Wound Care, General
+- pay_rate_hourly: number or null (hourly base pay in USD, e.g. 55.00)
+- pay_package_total: number or null (total weekly compensation in USD)
+- stipend_housing: number or null (weekly housing stipend in USD)
+- stipend_meals: number or null (weekly meal/M&IE stipend in USD)
+- contract_weeks: number or null (duration in weeks, e.g. 13)
+- hours_per_week: number or null (e.g. 36, 40, 48)
+- shift_type: "day" or "night" or "rotating" or "prn" or null
+- start_date: "YYYY-MM-DD" or null (null if ASAP or unspecified)
+- requirements: string[] — certifications/qualifications (e.g. ["BLS", "ACLS", "Active RN License"])
+- experience_required: string or null (e.g. "2 years ICU experience required")
+- description: string or null — 1-3 sentence summary (max 300 chars)
+
+Rules:
+- null for missing/unclear fields; empty array for requirements if none stated.
+- Extract BASE hourly rate only, not blended/OT. Weekly package = total take-home.
+- Do NOT invent data. Only extract what is explicitly stated.`;
+
+async function fetchPageText(url: string): Promise<string | null> {
   try {
-    const url = new URL(careersUrl);
-    const company = url.pathname.split("/").filter(Boolean)[0] || "";
-    if (!company) return { jobs: [], debug: "No company in path" };
-
-    const apiUrl = `https://api.lever.co/v0/postings/${company}?mode=json&sort=createdAt&direction=desc`;
-    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(10000), headers: FETCH_HEADERS });
-    if (!res.ok) return { jobs: [], debug: `HTTP ${res.status}` };
-    const rawJobs: Record<string, unknown>[] = await res.json();
-
-    const jobs = rawJobs
-      .filter((j) => {
-        const title = ((j.text as string) || "").toLowerCase();
-        return NURSE_KEYWORDS.some((kw) => title.includes(kw));
-      })
-      .slice(0, 5)
-      .map((j) => ({
-        title: (j.text as string) || "Untitled",
-        specialty: inferSpecialty((j.text as string) || ""),
-        location: ((j.categories as Record<string, string>)?.location) || "",
-        source_url: (j.hostedUrl as string) || "",
-        description: stripHtml((j.descriptionPlain as string) || (j.description as string) || "").slice(0, 500),
-        shift_type: inferShift((j.text as string) || ""),
-      }));
-    return { jobs, debug: `${rawJobs.length} raw, ${jobs.length} after filter` };
-  } catch (err) {
-    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
-  }
-}
-
-async function fetchSmartRecruitersJobs(careersUrl: string): Promise<FetchResult> {
-  try {
-    const url = new URL(careersUrl);
-    const company = url.pathname.split("/").filter(Boolean)[0] || "";
-    if (!company) return { jobs: [], debug: "No company in path" };
-
-    const apiUrl = `https://api.smartrecruiters.com/v1/companies/${company}/postings?q=nurse&limit=20&sort=posted&order=desc`;
-    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(10000), headers: FETCH_HEADERS });
-    if (!res.ok) return { jobs: [], debug: `HTTP ${res.status}` };
-    const data = await res.json();
-
-    const jobs = (data.content ?? [])
-      .filter((j: Record<string, unknown>) => {
-        const title = ((j.name as string) || "").toLowerCase();
-        return NURSE_KEYWORDS.some((kw) => title.includes(kw));
-      })
-      .slice(0, 5)
-      .map((j: Record<string, unknown>) => ({
-        title: (j.name as string) || "Untitled",
-        specialty: inferSpecialty((j.name as string) || ""),
-        location: ((j.location as Record<string, unknown>)?.city as string) || "",
-        source_url: ((j.ref as string) || "").replace("api.smartrecruiters.com/v1/companies", "jobs.smartrecruiters.com"),
-        description: "",
-        shift_type: inferShift((j.name as string) || ""),
-      }));
-    return { jobs, debug: `${(data.content ?? []).length} raw, ${jobs.length} after filter` };
-  } catch (err) {
-    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
-  }
-}
-
-async function fetchAvatureJobs(careersUrl: string): Promise<FetchResult> {
-  try {
-    const parsedUrl = new URL(careersUrl);
-    const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`;
-
-    const res = await fetch(baseUrl, {
-      signal: AbortSignal.timeout(10000),
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
       headers: FETCH_HEADERS,
       redirect: "follow",
     });
-    if (!res.ok) return { jobs: [], debug: `HTTP ${res.status} from ${baseUrl}` };
+    if (!res.ok) return null;
     const html = await res.text();
 
-    const jobIdMatches = [...html.matchAll(/<a[^>]+href=["']([^"']*jobId=\d+[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)];
-    const pathMatches = [...html.matchAll(/<a[^>]+href=["']([^"']*(?:\/job[s]?\/|\/opportunities\/)[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)];
-    const allMatches = [...jobIdMatches, ...pathMatches];
+    // Extract JSON-LD structured data (Workday and many ATS use this)
+    const jsonLdMatches = [...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+    let jsonLdText = "";
+    for (const match of jsonLdMatches) {
+      try {
+        const data = JSON.parse(match[1]);
+        jsonLdText += JSON.stringify(data, null, 2) + "\n";
+      } catch {
+        // Skip malformed JSON-LD
+      }
+    }
 
-    const jobs = allMatches
-      .map(([, href, rawTitle]) => ({
-        href,
-        title: rawTitle.replace(/<[^>]+>/g, "").trim(),
-      }))
-      .filter(({ title }) => {
-        if (!title || title.length < 5) return false;
-        const t = title.toLowerCase();
-        return NURSE_KEYWORDS.some((kw) => t.includes(kw));
-      })
-      .slice(0, 5)
-      .map(({ href, title }) => ({
-        title,
-        specialty: inferSpecialty(title),
-        location: "",
-        source_url: href.startsWith("http") ? href : new URL(href, baseUrl).href,
-        description: "",
-        shift_type: inferShift(title),
-      }));
-    return { jobs, debug: `${allMatches.length} links found, ${jobs.length} after filter` };
-  } catch (err) {
-    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
+    // Extract visible text content
+    const visibleText = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const combined = (jsonLdText + "\n\n" + visibleText).trim();
+    if (jsonLdText.length > 50) return combined;
+    if (visibleText.length < 50) return null;
+    return combined;
+  } catch {
+    return null;
   }
 }
 
-async function fetchTaleoJobs(careersUrl: string): Promise<FetchResult> {
-  try {
-    const url = new URL(careersUrl);
-    const baseTaleo = `${url.protocol}//${url.host}`;
+async function enrichWithGemini(pageText: string, jobUrl: string): Promise<EnrichedFields | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
-    const res = await fetch(careersUrl, {
-      signal: AbortSignal.timeout(10000),
-      headers: FETCH_HEADERS,
-      redirect: "follow",
-    });
-    if (!res.ok) return { jobs: [], debug: `HTTP ${res.status}` };
-    const html = await res.text();
+  const truncated = pageText.slice(0, 4000);
 
-    const jobMatches = [...html.matchAll(/<a[^>]+href=["']([^"']*(?:jobdetail|requisition)[^"']*)["'][^>]*>([^<]*)</gi)];
+  const payload = {
+    contents: [{
+      parts: [
+        { text: EXTRACTION_PROMPT },
+        { text: `\n\nJob posting text:\n${truncated}` },
+      ],
+    }],
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 1024,
+      response_mime_type: "application/json",
+    },
+  };
 
-    const jobs = jobMatches
-      .filter(([, , title]) => {
-        const t = (title || "").toLowerCase();
-        return NURSE_KEYWORDS.some((kw) => t.includes(kw));
-      })
-      .slice(0, 5)
-      .map(([, jobUrl, title]) => ({
-        title: title.trim() || "Untitled",
-        specialty: inferSpecialty(title),
-        location: "",
-        source_url: jobUrl.startsWith("http") ? jobUrl : baseTaleo + jobUrl,
-        description: "",
-        shift_type: inferShift(title),
-      }));
-    return { jobs, debug: `${jobMatches.length} links found, ${jobs.length} after filter` };
-  } catch (err) {
-    return { jobs: [], debug: `Error: ${err instanceof Error ? err.message : String(err)}` };
+  const MAX_RETRIES = 2;
+  const BACKOFF_MS = [1000, 2000];
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      console.log(`  ↻ Retry ${attempt}/${MAX_RETRIES} for enrichment of ${jobUrl}`);
+      await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt - 1]));
+    }
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
+      }
+    );
+
+    if (res.status === 429 && attempt < MAX_RETRIES) continue;
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Gemini enrichment ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const cleaned = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    if (!cleaned) return null;
+
+    try {
+      const parsed = JSON.parse(cleaned) as EnrichedFields;
+      const validShifts = ["day", "night", "rotating", "prn"];
+      if (parsed.shift_type && !validShifts.includes(parsed.shift_type)) {
+        parsed.shift_type = null;
+      }
+      if (!Array.isArray(parsed.requirements)) {
+        parsed.requirements = [];
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
   }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -318,19 +435,6 @@ function inferSpecialty(title: string): string {
   return "General";
 }
 
-function inferShift(title: string): string | null {
-  const t = title.toLowerCase();
-  if (t.includes("night") || t.includes("noc")) return "night";
-  if (t.includes("day") || t.includes("am ")) return "day";
-  if (t.includes("rotating")) return "rotating";
-  if (t.includes("prn") || t.includes("per diem")) return "prn";
-  return null;
-}
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
-
 function hashContent(content: string): string {
   let hash = 0;
   for (let i = 0; i < content.length; i++) {
@@ -339,25 +443,6 @@ function hashContent(content: string): string {
     hash |= 0;
   }
   return Math.abs(hash).toString(36);
-}
-
-/** Quick HEAD check — returns true if URL resolves to a real page (not generic careers) */
-async function isValidJobUrl(url: string): Promise<boolean> {
-  try {
-    const res = await fetch(url, {
-      method: "HEAD",
-      signal: AbortSignal.timeout(2000),
-      headers: FETCH_HEADERS,
-      redirect: "follow",
-    });
-    if (!res.ok) return false;
-    // Reject if redirected to a generic careers/home page
-    const finalUrl = res.url.toLowerCase();
-    if (finalUrl.endsWith("/careers") || finalUrl.endsWith("/careers/") || finalUrl.endsWith("/jobs") || finalUrl.endsWith("/jobs/")) return false;
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -381,14 +466,11 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
 
-  // 2. Get facilities with a known ATS (not "none" or "unknown")
+  // 2. Get ALL facilities with a website or careers_url — no ATS filter
   let query = supabase
     .from("facilities")
-    .select("id, name, careers_url, ats_type, location_state, location_city")
-    .not("careers_url", "is", null)
-    .not("ats_type", "is", null)
-    .not("ats_type", "eq", "none")
-    .not("ats_type", "eq", "unknown");
+    .select("id, name, website, careers_url, ats_type, location_state, location_city")
+    .or("website.not.is.null,careers_url.not.is.null");
 
   if (body.state) {
     query = query.eq("location_state", body.state.toUpperCase());
@@ -405,107 +487,161 @@ export async function POST(request: NextRequest) {
     jobs_updated: 0,
     jobs_skipped: 0,
     jobs_deactivated: 0,
-    details: [] as { name: string; ats_type: string; jobs_found: number; jobs_deactivated: number; debug?: string }[],
+    details: [] as FacilityDetail[],
     errors: [] as { facility: string; message: string }[],
   };
 
-  // 3. Fetch jobs from each facility's ATS — process in parallel batches of 5
-  const BATCH_SIZE = 5;
   const allFacilities = (facilities as FacilityRow[]) ?? [];
+  const BATCH_SIZE = 3; // Smaller batch — each facility now makes Gemini calls
 
   async function processFacility(facility: FacilityRow) {
+    const detail: FacilityDetail = {
+      name: facility.name,
+      careers_url: null,
+      links_found: 0,
+      gemini_selected: 0,
+      jobs_saved: 0,
+      jobs_deactivated: 0,
+    };
+
     try {
-      let fetchResult: FetchResult = { jobs: [] };
+      // --- Phase 1: BROAD DISCOVERY — find careers page ---
+      const careersUrl = await findCareersPage(facility);
+      if (!careersUrl) {
+        detail.debug = "No careers page found";
+        results.details.push(detail);
+        results.facilities_processed++;
+        return;
+      }
+      detail.careers_url = careersUrl;
 
-      switch (facility.ats_type) {
-        case "workday":
-          fetchResult = await fetchWorkdayJobs(facility.careers_url);
-          break;
-        case "greenhouse":
-          fetchResult = await fetchGreenhouseJobs(facility.careers_url);
-          break;
-        case "lever":
-          fetchResult = await fetchLeverJobs(facility.careers_url);
-          break;
-        case "smartrecruiters":
-          fetchResult = await fetchSmartRecruitersJobs(facility.careers_url);
-          break;
-        case "avature":
-          fetchResult = await fetchAvatureJobs(facility.careers_url);
-          break;
-        case "taleo":
-          fetchResult = await fetchTaleoJobs(facility.careers_url);
-          break;
-        default:
-          return;
+      // Update facility careers_url if we discovered a new one
+      if (careersUrl !== facility.careers_url) {
+        await supabase
+          .from("facilities")
+          .update({ careers_url: careersUrl })
+          .eq("id", facility.id);
       }
 
-      // 4. Filter jobs with valid source URLs + validate they point to real pages
-      const rawJobs = fetchResult.jobs.filter((j) => !!j.source_url);
-      const validJobs: ScrapedJob[] = [];
-      for (const job of rawJobs) {
-        const ok = await isValidJobUrl(job.source_url);
-        if (ok) validJobs.push(job);
+      // --- Phase 2: Scrape ALL links from careers page ---
+      const allLinks = await scrapeAllLinks(careersUrl);
+      detail.links_found = allLinks.length;
+
+      if (allLinks.length === 0) {
+        detail.debug = "No links found on careers page";
+        results.details.push(detail);
+        results.facilities_processed++;
+        return;
       }
 
-      let facilityDeactivated = 0;
+      // --- Phase 3: INTELLIGENT LINK SELECTION via Gemini ---
+      const selectedUrls = await selectLinksWithGemini(allLinks);
+      detail.gemini_selected = selectedUrls.length;
 
-      // 5. Upsert valid jobs into job_postings
+      if (selectedUrls.length === 0) {
+        detail.debug = `${allLinks.length} links scanned, Gemini found 0 travel nurse jobs`;
+        results.details.push(detail);
+        results.facilities_processed++;
+        return;
+      }
+
+      // 300ms delay after link selection call before enrichment calls
+      await new Promise((r) => setTimeout(r, 300));
+
+      // --- Phase 4: TARGETED SCRAPING + PARALLEL ENRICHMENT ---
       const seenSourceUrls = new Set<string>();
-      for (const job of validJobs) {
-        seenSourceUrls.add(job.source_url);
 
-        const contentHash = hashContent(job.title + job.description + job.location);
+      for (const jobUrl of selectedUrls) {
+        seenSourceUrls.add(jobUrl);
 
+        // Fetch the full page text
+        const pageText = await fetchPageText(jobUrl);
+        if (!pageText || pageText.length < 50) {
+          results.errors.push({ facility: facility.name, message: `Could not fetch ${jobUrl}` });
+          continue;
+        }
+
+        // Enrich with Gemini (inline — no separate step)
+        const extracted = await enrichWithGemini(pageText, jobUrl);
+
+        // 300ms delay between Gemini calls
+        await new Promise((r) => setTimeout(r, 300));
+
+        if (!extracted) {
+          results.errors.push({ facility: facility.name, message: `Gemini parse failed for ${jobUrl}` });
+          continue;
+        }
+
+        // Skip if Gemini determined this is a staff/permanent job
+        if (extracted.is_contract === false) {
+          continue;
+        }
+
+        // Build the job title — prefer Gemini's extraction, fall back to link text
+        const linkEntry = allLinks.find((l) => l.url === jobUrl);
+        const title = extracted.title || linkEntry?.text || "Untitled";
+        const specialty = extracted.specialty || inferSpecialty(title);
+        const contentHash = hashContent(title + (extracted.description || "") + jobUrl);
+
+        // --- Phase 5: UPSERT with ON CONFLICT ---
+        // Check for existing job by source_url
         const { data: existing } = await supabase
           .from("job_postings")
           .select("id, source_hash")
-          .eq("source_url", job.source_url)
+          .eq("source_url", jobUrl)
           .maybeSingle();
+
+        const jobData: Record<string, unknown> = {
+          title,
+          specialty,
+          source_hash: contentHash,
+          last_seen_at: new Date().toISOString(),
+          is_active: true,
+          enriched_at: new Date().toISOString(),
+        };
+
+        // Set enriched fields
+        if (extracted.pay_rate_hourly != null) jobData.pay_rate_hourly = extracted.pay_rate_hourly;
+        if (extracted.pay_package_total != null) jobData.pay_package_total = extracted.pay_package_total;
+        if (extracted.stipend_housing != null) jobData.stipend_housing = extracted.stipend_housing;
+        if (extracted.stipend_meals != null) jobData.stipend_meals = extracted.stipend_meals;
+        if (extracted.contract_weeks != null) jobData.contract_weeks = extracted.contract_weeks;
+        if (extracted.hours_per_week != null) jobData.hours_per_week = extracted.hours_per_week;
+        if (extracted.shift_type) jobData.shift_type = extracted.shift_type;
+        if (extracted.start_date) jobData.start_date = extracted.start_date;
+        if (extracted.requirements?.length > 0) jobData.requirements = extracted.requirements;
+        if (extracted.experience_required) jobData.experience_required = extracted.experience_required;
+        if (extracted.description) jobData.description = extracted.description;
 
         if (existing) {
           if (existing.source_hash === contentHash) {
+            // Same content — just refresh timestamps
             await supabase
               .from("job_postings")
               .update({ last_seen_at: new Date().toISOString(), is_active: true })
               .eq("id", existing.id);
             results.jobs_skipped++;
           } else {
+            // Content changed — full update
             await supabase
               .from("job_postings")
-              .update({
-                title: job.title,
-                specialty: job.specialty,
-                description: job.description,
-                source_hash: contentHash,
-                last_seen_at: new Date().toISOString(),
-                is_active: true,
-                ...(job.shift_type && { shift_type: job.shift_type }),
-              })
+              .update(jobData)
               .eq("id", existing.id);
             results.jobs_updated++;
           }
         } else {
-          // Plain insert — the select+maybeSingle above already handles dedup.
-          // If a race condition causes a duplicate source_url, catch the error gracefully.
+          // New job — insert
           const { error: insertErr } = await supabase
             .from("job_postings")
             .insert({
               facility_id: facility.id,
-              title: job.title,
-              specialty: job.specialty,
-              description: job.description,
-              source_url: job.source_url,
-              source_hash: contentHash,
+              source_url: jobUrl,
               data_source: "scraped",
-              is_active: true,
               scraped_at: new Date().toISOString(),
-              last_seen_at: new Date().toISOString(),
-              ...(job.shift_type && { shift_type: job.shift_type }),
+              ...jobData,
             });
 
           if (insertErr) {
-            // Duplicate source_url — treat as skip, not error
             if (insertErr.code === "23505") {
               results.jobs_skipped++;
             } else {
@@ -513,11 +649,12 @@ export async function POST(request: NextRequest) {
             }
           } else {
             results.jobs_created++;
+            detail.jobs_saved++;
           }
         }
       }
 
-      // 6. Deactivate stale jobs
+      // --- Deactivate stale jobs for this facility ---
       const { data: activeDbJobs } = await supabase
         .from("job_postings")
         .select("id, source_url")
@@ -531,29 +668,24 @@ export async function POST(request: NextRequest) {
             .from("job_postings")
             .update({ is_active: false })
             .eq("id", dbJob.id);
-          facilityDeactivated++;
+          detail.jobs_deactivated++;
         }
       }
 
-      results.jobs_deactivated += facilityDeactivated;
-      results.facilities_processed++;
-
-      results.details.push({
-        name: facility.name,
-        ats_type: facility.ats_type,
-        jobs_found: validJobs.length,
-        jobs_deactivated: facilityDeactivated,
-        debug: fetchResult.debug + (rawJobs.length > validJobs.length ? ` | ${rawJobs.length - validJobs.length} bad URLs skipped` : ""),
-      });
+      results.jobs_deactivated += detail.jobs_deactivated;
+      detail.debug = `${allLinks.length} links → Gemini picked ${selectedUrls.length} → ${detail.jobs_saved} saved`;
     } catch (e) {
-      results.facilities_processed++;
       results.errors.push({
         facility: facility.name,
         message: e instanceof Error ? e.message : "Unknown error",
       });
     }
+
+    results.facilities_processed++;
+    results.details.push(detail);
   }
 
+  // Process facilities in batches of 3 (each makes multiple Gemini calls)
   for (let i = 0; i < allFacilities.length; i += BATCH_SIZE) {
     const batch = allFacilities.slice(i, i + BATCH_SIZE);
     await Promise.all(batch.map(processFacility));

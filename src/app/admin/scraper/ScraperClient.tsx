@@ -25,7 +25,7 @@ interface ScrapeResult {
   jobs_updated: number;
   jobs_skipped: number;
   jobs_deactivated: number;
-  details: { name: string; ats_type: string; jobs_found: number; jobs_deactivated: number; debug?: string }[];
+  details: { name: string; careers_url: string | null; links_found: number; gemini_selected: number; jobs_saved: number; jobs_deactivated: number; debug?: string }[];
   errors: { facility: string; message: string }[];
 }
 
@@ -340,10 +340,10 @@ export default function ScraperClient({
         >
           <div>
             <h2 className="text-base font-semibold text-brand-charcoal">
-              Step 2: Scrape Jobs from ATS
+              Step 2: Gemini-First Job Discovery
             </h2>
             <p className="mt-0.5 text-xs text-brand-gray-400">
-              Pulls up to 5 recent contract/travel nurse jobs from each facility with a known ATS (Workday, Greenhouse, Lever, Avature, Taleo, etc.).
+              Scrapes ALL links from each facility&apos;s careers page, asks Gemini to pick the top 5 travel/contract nurse URLs, fetches &amp; enriches them inline.
             </p>
           </div>
           {showScrape ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -376,7 +376,7 @@ export default function ScraperClient({
                 ) : (
                   <Download size={16} />
                 )}
-                {scrapeLoading ? "Scraping…" : "Scrape Jobs"}
+                {scrapeLoading ? "Discovering…" : "Discover & Enrich Jobs"}
               </button>
             </div>
 
@@ -415,22 +415,20 @@ export default function ScraperClient({
                           <thead>
                             <tr className="border-b border-brand-gray-200 bg-brand-gray-100">
                               <th className="px-3 py-2 font-medium text-brand-gray-500">Facility</th>
-                              <th className="px-3 py-2 font-medium text-brand-gray-500">ATS</th>
-                              <th className="px-3 py-2 font-medium text-brand-gray-500 text-right">Jobs Found</th>
+                              <th className="px-3 py-2 font-medium text-brand-gray-500 text-right">Links</th>
+                              <th className="px-3 py-2 font-medium text-brand-gray-500 text-right">AI Picked</th>
+                              <th className="px-3 py-2 font-medium text-brand-gray-500 text-right">Saved</th>
                               <th className="px-3 py-2 font-medium text-brand-gray-500 text-right">Deactivated</th>
-                              <th className="px-3 py-2 font-medium text-brand-gray-500">Debug</th>
+                              <th className="px-3 py-2 font-medium text-brand-gray-500">Info</th>
                             </tr>
                           </thead>
                           <tbody>
                             {scrapeResult.details.map((d, i) => (
                               <tr key={i} className="border-b border-brand-gray-200 hover:bg-brand-gray-50">
                                 <td className="px-3 py-1.5 text-brand-charcoal">{d.name}</td>
-                                <td className="px-3 py-1.5">
-                                  <span className="inline-block rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
-                                    {d.ats_type}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-1.5 text-right font-medium text-brand-charcoal">{d.jobs_found}</td>
+                                <td className="px-3 py-1.5 text-right text-brand-gray-400">{d.links_found}</td>
+                                <td className="px-3 py-1.5 text-right font-medium text-blue-600">{d.gemini_selected}</td>
+                                <td className="px-3 py-1.5 text-right font-medium text-green-600">{d.jobs_saved}</td>
                                 <td className="px-3 py-1.5 text-right font-medium text-red-500">{d.jobs_deactivated || 0}</td>
                                 <td className="max-w-xs truncate px-3 py-1.5 text-brand-gray-400">{d.debug || "—"}</td>
                               </tr>
@@ -470,10 +468,10 @@ export default function ScraperClient({
         >
           <div>
             <h2 className="text-base font-semibold text-brand-charcoal">
-              Step 3: Enrich Jobs with AI
+              Step 3: Enrich Leftovers
             </h2>
             <p className="mt-0.5 text-xs text-brand-gray-400">
-              Uses Gemini 2.5 Flash to visit each job&apos;s source page and extract pay rates, hours, certifications, experience requirements, and more.
+              Catch-up enrichment for legacy or previously failed jobs. Step 2 now enriches inline — this handles any stragglers.
             </p>
           </div>
           {showEnrich ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
