@@ -124,7 +124,7 @@ const FETCH_OPTS: RequestInit = {
 };
 
 /** Fetch a page with timeout; returns { html, finalUrl } or null on failure */
-async function safeFetch(url: string, timeoutMs = 8000): Promise<{ html: string; finalUrl: string } | null> {
+async function safeFetch(url: string, timeoutMs = 5000): Promise<{ html: string; finalUrl: string } | null> {
   try {
     const res = await fetch(url, {
       ...FETCH_OPTS,
@@ -228,7 +228,7 @@ async function detectATS(website: string): Promise<{
   // --- Step 3: Probe common career paths ---
   for (const path of CAREER_PATHS) {
     const probeUrl = baseUrl + path;
-    const page = await safeFetch(probeUrl, 5000);
+    const page = await safeFetch(probeUrl, 3000);
     if (!page) continue;
 
     // Check redirect destination
@@ -282,7 +282,12 @@ export async function POST(request: NextRequest) {
     query = query.eq("location_state", body.state.toUpperCase());
   }
 
-  const { data: facilities, error: fetchErr } = await query.limit(100);
+  // Only scan facilities that haven't been detected yet
+  if (!body.facility_ids?.length) {
+    query = query.is("ats_type", null);
+  }
+
+  const { data: facilities, error: fetchErr } = await query.limit(20);
   if (fetchErr) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 });
   }
@@ -290,23 +295,20 @@ export async function POST(request: NextRequest) {
   const atsBreakdown: Record<string, number> = {};
   const details: { name: string; website: string; careers_url: string | null; ats_type: string }[] = [];
   const errors: { facility: string; message: string }[] = [];
-  let facilitiesScanned = 0;
   let careersFound = 0;
 
-  // 3. Process each facility
-  for (const facility of (facilities as FacilityRow[]) ?? []) {
-    facilitiesScanned++;
+  // 3. Process facilities in parallel (5 at a time to stay within timeout)
+  const allFacilities = (facilities as FacilityRow[]) ?? [];
 
+  async function processFacility(facility: FacilityRow) {
     try {
       const detection = await detectATS(facility.website!);
 
-      // Save detection result to DB
       await supabase
         .from("facilities")
         .update({ ats_type: detection.ats_type, careers_url: detection.careers_url })
         .eq("id", facility.id);
 
-      // Track stats
       if (detection.careers_url) careersFound++;
       atsBreakdown[detection.ats_type] = (atsBreakdown[detection.ats_type] || 0) + 1;
 
@@ -324,8 +326,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Process in batches of 5 concurrently
+  for (let i = 0; i < allFacilities.length; i += 5) {
+    const batch = allFacilities.slice(i, i + 5);
+    await Promise.all(batch.map(processFacility));
+  }
+
   return NextResponse.json({
-    facilities_scanned: facilitiesScanned,
+    facilities_scanned: allFacilities.length,
     careers_found: careersFound,
     ats_breakdown: atsBreakdown,
     details,
