@@ -25,7 +25,8 @@ interface ScrapeResult {
   jobs_created: number;
   jobs_updated: number;
   jobs_skipped: number;
-  details: { name: string; ats_type: string; jobs_found: number }[];
+  jobs_deactivated: number;
+  details: { name: string; ats_type: string; jobs_found: number; jobs_deactivated: number }[];
   errors: { facility: string; message: string }[];
 }
 
@@ -355,6 +356,9 @@ export default function ScraperClient({
                   <span className="text-brand-gray-400">
                     Skipped: <strong>{scrapeResult.jobs_skipped}</strong>
                   </span>
+                  <span className="text-red-500">
+                    Deactivated: <strong>{scrapeResult.jobs_deactivated}</strong>
+                  </span>
                 </div>
 
                 {scrapeResult.details.length > 0 && (
@@ -374,6 +378,7 @@ export default function ScraperClient({
                               <th className="px-3 py-2 font-medium text-brand-gray-500">Facility</th>
                               <th className="px-3 py-2 font-medium text-brand-gray-500">ATS</th>
                               <th className="px-3 py-2 font-medium text-brand-gray-500 text-right">Jobs Found</th>
+                              <th className="px-3 py-2 font-medium text-brand-gray-500 text-right">Deactivated</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -386,6 +391,7 @@ export default function ScraperClient({
                                   </span>
                                 </td>
                                 <td className="px-3 py-1.5 text-right font-medium text-brand-charcoal">{d.jobs_found}</td>
+                                <td className="px-3 py-1.5 text-right font-medium text-red-500">{d.jobs_deactivated || 0}</td>
                               </tr>
                             ))}
                           </tbody>

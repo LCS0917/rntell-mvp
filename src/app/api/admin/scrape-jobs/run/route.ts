@@ -10,7 +10,7 @@
  *
  * Returns:
  *   { facilities_processed, jobs_created, jobs_updated, jobs_skipped,
- *     details: { name, ats_type, jobs_found }[], errors[] }
+ *     jobs_deactivated, details: { name, ats_type, jobs_found }[], errors[] }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -344,6 +344,21 @@ function hashContent(content: string): string {
   return Math.abs(hash).toString(36);
 }
 
+/** HEAD-check a URL to verify it still resolves (not 404/gone). */
+async function isUrlAlive(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, {
+      method: "HEAD",
+      headers: FETCH_HEADERS,
+      redirect: "follow",
+      signal: AbortSignal.timeout(5000),
+    });
+    return res.ok; // 200-299
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
@@ -388,7 +403,8 @@ export async function POST(request: NextRequest) {
     jobs_created: 0,
     jobs_updated: 0,
     jobs_skipped: 0,
-    details: [] as { name: string; ats_type: string; jobs_found: number }[],
+    jobs_deactivated: 0,
+    details: [] as { name: string; ats_type: string; jobs_found: number; jobs_deactivated: number }[],
     errors: [] as { facility: string; message: string }[],
   };
 
@@ -422,15 +438,22 @@ export async function POST(request: NextRequest) {
           continue;
       }
 
-      results.details.push({
-        name: facility.name,
-        ats_type: facility.ats_type,
-        jobs_found: scrapedJobs.length,
-      });
-
-      // 4. Upsert into job_postings
+      // 4. Validate source URLs — filter out dead links
+      const validJobs: ScrapedJob[] = [];
       for (const job of scrapedJobs) {
         if (!job.source_url) continue;
+        const alive = await isUrlAlive(job.source_url);
+        if (alive) {
+          validJobs.push(job);
+        }
+      }
+
+      let facilityDeactivated = 0;
+
+      // 5. Upsert valid jobs into job_postings
+      const seenSourceUrls = new Set<string>();
+      for (const job of validJobs) {
+        seenSourceUrls.add(job.source_url);
 
         const contentHash = hashContent(job.title + job.description + job.location);
 
@@ -444,7 +467,7 @@ export async function POST(request: NextRequest) {
           if (existing.source_hash === contentHash) {
             await supabase
               .from("job_postings")
-              .update({ last_seen_at: new Date().toISOString() })
+              .update({ last_seen_at: new Date().toISOString(), is_active: true })
               .eq("id", existing.id);
             results.jobs_skipped++;
           } else {
@@ -456,6 +479,7 @@ export async function POST(request: NextRequest) {
                 description: job.description,
                 source_hash: contentHash,
                 last_seen_at: new Date().toISOString(),
+                is_active: true,
                 ...(job.shift_type && { shift_type: job.shift_type }),
               })
               .eq("id", existing.id);
@@ -485,6 +509,38 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+
+      // 6. Deactivate stale jobs — scraped jobs from this facility
+      //    that no longer appear in the ATS results
+      const { data: activeDbJobs } = await supabase
+        .from("job_postings")
+        .select("id, source_url")
+        .eq("facility_id", facility.id)
+        .eq("data_source", "scraped")
+        .eq("is_active", true);
+
+      for (const dbJob of activeDbJobs ?? []) {
+        if (dbJob.source_url && !seenSourceUrls.has(dbJob.source_url)) {
+          // Double-check: HEAD the URL to confirm it's really dead
+          const stillAlive = await isUrlAlive(dbJob.source_url);
+          if (!stillAlive) {
+            await supabase
+              .from("job_postings")
+              .update({ is_active: false })
+              .eq("id", dbJob.id);
+            facilityDeactivated++;
+          }
+        }
+      }
+
+      results.jobs_deactivated += facilityDeactivated;
+
+      results.details.push({
+        name: facility.name,
+        ats_type: facility.ats_type,
+        jobs_found: validJobs.length,
+        jobs_deactivated: facilityDeactivated,
+      });
     } catch (e) {
       results.errors.push({
         facility: facility.name,
