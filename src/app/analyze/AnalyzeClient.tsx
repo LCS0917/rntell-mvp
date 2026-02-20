@@ -2,7 +2,6 @@
 
 import { useCallback, useRef, useState } from "react";
 import {
-  analyzeContract,
   saveAnalysisTaxContext,
   type AnalysisResult,
   type AuditRiskResult,
@@ -167,11 +166,16 @@ export default function AnalyzeClient() {
     };
 
     try {
-      const res = await analyzeContract(input);
-      if (res.error) {
-        setError(res.error);
-      } else if (res.data) {
-        setResult(res.data);
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const json = await res.json();
+      if (json.error) {
+        setError(json.error);
+      } else if (json.data) {
+        setResult(json.data);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
