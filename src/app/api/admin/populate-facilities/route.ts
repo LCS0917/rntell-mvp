@@ -154,33 +154,40 @@ export async function POST(request: NextRequest) {
   const stateUpper = state.toUpperCase();
   const limit = max_results && max_results > 0 ? max_results : 100;
 
-  // 3. Fetch from Google Places — paginate until we hit limit
+  // 3. Fetch from Google Places — paginate until we hit limit (up to 60)
   const allPlaces: PlaceResult[] = [];
   let nextPageToken: string | undefined;
 
-  // Search for hospitals
+  // Search for hospitals — paginate with required 2s sleep between pages
   const hospitalQuery = `hospitals in ${city}, ${stateUpper}`;
-  let page = 0;
 
   do {
+    if (nextPageToken) {
+      // Google requires ~2s for nextPageToken to become valid
+      console.log(`  Waiting 2s for next page token (hospitals)...`);
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    console.log(`  Fetching hospitals page (${allPlaces.length} found so far)...`);
     const result = await searchPlaces(GOOGLE_API_KEY, hospitalQuery, nextPageToken);
     allPlaces.push(...result.places);
     nextPageToken = result.nextPageToken;
-    page++;
-  } while (nextPageToken && page < 3 && allPlaces.length < limit);
+  } while (nextPageToken && allPlaces.length < limit);
 
   // Also search for clinics/medical centers if we haven't hit the limit
   if (allPlaces.length < limit) {
     const clinicQuery = `medical centers and clinics in ${city}, ${stateUpper}`;
     nextPageToken = undefined;
-    page = 0;
 
     do {
+      if (nextPageToken) {
+        console.log(`  Waiting 2s for next page token (clinics)...`);
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      console.log(`  Fetching clinics page (${allPlaces.length} found so far)...`);
       const result = await searchPlaces(GOOGLE_API_KEY, clinicQuery, nextPageToken);
       allPlaces.push(...result.places);
       nextPageToken = result.nextPageToken;
-      page++;
-    } while (nextPageToken && page < 2 && allPlaces.length < limit);
+    } while (nextPageToken && allPlaces.length < limit);
   }
 
   // Deduplicate by Google Place ID, then cap at limit

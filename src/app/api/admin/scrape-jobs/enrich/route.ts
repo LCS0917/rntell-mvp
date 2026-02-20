@@ -23,6 +23,7 @@ export const maxDuration = 120;
 // ---------------------------------------------------------------------------
 
 interface EnrichedFields {
+  is_contract?: boolean;
   pay_rate_hourly: number | null;
   pay_package_total: number | null;
   stipend_housing: number | null;
@@ -37,12 +38,37 @@ interface EnrichedFields {
 }
 
 // ---------------------------------------------------------------------------
+// Pre-enrichment filter: skip Staff/Permanent jobs to save Gemini costs
+// ---------------------------------------------------------------------------
+
+const STAFF_KEYWORDS = [
+  "staff rn", "staff nurse", "permanent", "fte", "full-time employee",
+  "full time employee", "new grad", "residency",
+];
+const TRAVEL_KEYWORDS = [
+  "travel", "contract", "stipend", "13 weeks", "assignment", "per diem",
+];
+
+function isLikelyStaffJob(title: string, description: string): boolean {
+  const text = (title + " " + description).toLowerCase();
+  const hasStaffKeyword = STAFF_KEYWORDS.some((kw) => text.includes(kw));
+  if (!hasStaffKeyword) return false;
+  const hasTravelKeyword = TRAVEL_KEYWORDS.some((kw) => text.includes(kw));
+  return !hasTravelKeyword; // skip only if staff keyword present AND no travel keyword
+}
+
+// ---------------------------------------------------------------------------
 // Gemini extraction
 // ---------------------------------------------------------------------------
 
 const EXTRACTION_PROMPT = `You are a data extraction expert. Extract job details into raw JSON. Do not include markdown formatting or conversational filler. Use null for missing values.
 
+FIRST: Determine if this is a Contract/Travel nursing role or a Staff/Permanent position.
+If it is clearly a Staff or Permanent role (not travel/contract), return ONLY: {"is_contract": false}
+If it IS a contract/travel role (or unclear), proceed with full extraction and include "is_contract": true.
+
 Fields:
+- is_contract: boolean (true if contract/travel, false if staff/permanent)
 - pay_rate_hourly: number or null (hourly base pay in USD, e.g. 55.00)
 - pay_package_total: number or null (total weekly compensation in USD)
 - stipend_housing: number or null (weekly housing stipend in USD)
@@ -215,10 +241,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const limit = Math.min(body.limit ?? 20, 50);
 
-  // 2. Get un-enriched scraped jobs
+  // 2. Get un-enriched scraped jobs (include description for pre-filter)
   const { data: jobs, error: fetchErr } = await supabase
     .from("job_postings")
-    .select("id, title, source_url, specialty")
+    .select("id, title, source_url, specialty, description")
     .eq("data_source", "scraped")
     .eq("is_active", true)
     .is("enriched_at", null)
@@ -243,6 +269,7 @@ export async function POST(request: NextRequest) {
   const results = {
     jobs_enriched: 0,
     jobs_failed: 0,
+    jobs_skipped_staff: 0,
     details: [] as { id: string; title: string; fields_filled: string[] }[],
     errors: [] as { id: string; title: string; message: string }[],
   };
@@ -251,7 +278,18 @@ export async function POST(request: NextRequest) {
   const DELAY_MS = 300;
 
   for (let i = 0; i < jobs.length; i++) {
-    const job = jobs[i] as { id: string; title: string; source_url: string; specialty: string };
+    const job = jobs[i] as { id: string; title: string; source_url: string; specialty: string; description: string | null };
+
+    // --- Phase 2: Pre-filter staff/permanent jobs (zero API cost) ---
+    if (isLikelyStaffJob(job.title, job.description ?? "")) {
+      console.log(`Skipping staff/permanent job [${i + 1}/${jobs.length}]: "${job.title}"`);
+      await supabase
+        .from("job_postings")
+        .update({ enriched_at: new Date().toISOString(), is_active: false })
+        .eq("id", job.id);
+      results.jobs_skipped_staff++;
+      continue;
+    }
 
     console.log(`Enriching [${i + 1}/${jobs.length}] "${job.title}"... (Paid Tier)`);
 
@@ -269,6 +307,17 @@ export async function POST(request: NextRequest) {
       if (!extracted) {
         results.errors.push({ id: job.id, title: job.title, message: "Gemini returned unparseable response" });
         results.jobs_failed++;
+        continue;
+      }
+
+      // --- Phase 3A: Gemini determined this is a staff/permanent job ---
+      if (extracted.is_contract === false) {
+        console.log(`  → Gemini flagged as staff/permanent: "${job.title}"`);
+        await supabase
+          .from("job_postings")
+          .update({ enriched_at: new Date().toISOString(), is_active: false })
+          .eq("id", job.id);
+        results.jobs_skipped_staff++;
         continue;
       }
 
