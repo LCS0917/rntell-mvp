@@ -2,7 +2,6 @@
 
 import { useCallback, useRef, useState } from "react";
 import {
-  saveAnalysisTaxContext,
   type AnalysisResult,
   type AuditRiskResult,
   type ContractInput,
@@ -1162,16 +1161,21 @@ function TaxContextForm({
         tax_home_monthly_expense: expenseNum,
         metro_months_last_24: metroNum,
       };
-      const res = await saveAnalysisTaxContext({
-        analysis_id: result.id,
-        session_id: result.session_id,
-        tax_context: ctx,
-        hourly_rate: result.hourly_rate,
-        stipend_housing: result.weekly_housing,
-        stipend_meals: result.weekly_meals,
-        gsa_weekly_housing: result.gsa_weekly_housing,
-        gsa_weekly_meals: result.gsa_weekly_meals,
+      const response = await fetch("/api/analyze/audit-risk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          analysis_id: result.id,
+          session_id: result.session_id,
+          tax_context: ctx,
+          hourly_rate: result.hourly_rate,
+          stipend_housing: result.weekly_housing,
+          stipend_meals: result.weekly_meals,
+          gsa_weekly_housing: result.gsa_weekly_housing,
+          gsa_weekly_meals: result.gsa_weekly_meals,
+        }),
       });
+      const res = await response.json();
       if (res.error) {
         setError(res.error);
       } else if (res.data) {
