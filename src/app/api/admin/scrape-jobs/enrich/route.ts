@@ -2,8 +2,8 @@
  * POST /api/admin/scrape-jobs/enrich
  * -----------------------------------
  * Step 3: For scraped jobs that haven't been enriched yet, fetch the
- * source_url page and use Gemini 2.5 Flash to extract structured data
- * (pay, hours, certs, experience, etc.) then update the DB.
+ * source_url page and use Gemini 2.5 Flash-Lite (JSON mode) to extract
+ * structured data (pay, hours, certs, experience, etc.) then update the DB.
  *
  * Request body:
  *   { limit?: number }  — max jobs to enrich (default 20)
@@ -40,85 +40,110 @@ interface EnrichedFields {
 // Gemini extraction
 // ---------------------------------------------------------------------------
 
-const EXTRACTION_PROMPT = `You are a data extraction assistant. Given the text content of a travel nurse job posting, extract the following fields into a JSON object. Return ONLY valid JSON, no markdown fences, no explanation.
+const EXTRACTION_PROMPT = `You are a data extraction expert. Extract job details into raw JSON. Do not include markdown formatting or conversational filler. Use null for missing values.
 
-Fields to extract:
-- pay_rate_hourly: number or null (hourly base pay rate in USD, e.g. 55.00)
-- pay_package_total: number or null (total weekly compensation package in USD)
-- stipend_housing: number or null (weekly housing stipend/allowance in USD)
+Fields:
+- pay_rate_hourly: number or null (hourly base pay in USD, e.g. 55.00)
+- pay_package_total: number or null (total weekly compensation in USD)
+- stipend_housing: number or null (weekly housing stipend in USD)
 - stipend_meals: number or null (weekly meal/M&IE stipend in USD)
-- contract_weeks: number or null (contract duration in weeks, e.g. 13)
-- hours_per_week: number or null (scheduled hours per week, e.g. 36, 40, 48)
+- contract_weeks: number or null (duration in weeks, e.g. 13)
+- hours_per_week: number or null (e.g. 36, 40, 48)
 - shift_type: "day" or "night" or "rotating" or "prn" or null
-- start_date: ISO date string "YYYY-MM-DD" or null (if ASAP or not specified, use null)
-- requirements: array of strings — certifications and qualifications required (e.g. ["BLS", "ACLS", "2 years ICU experience", "Active RN License"])
-- experience_required: string or null — a short summary of experience needed (e.g. "2 years ICU experience required")
-- description: string or null — a clean 1-3 sentence summary of the position (max 300 chars)
+- start_date: "YYYY-MM-DD" or null (null if ASAP or unspecified)
+- requirements: string[] — certifications/qualifications (e.g. ["BLS", "ACLS", "Active RN License"])
+- experience_required: string or null (e.g. "2 years ICU experience required")
+- description: string or null — 1-3 sentence summary (max 300 chars)
 
 Rules:
-- If a field is not mentioned or unclear, use null (or empty array for requirements).
-- For pay: extract the BASE hourly rate, not blended/OT rates. Weekly package = total weekly take-home.
-- For requirements: include certifications (BLS, ACLS, PALS, NRP, etc.), license requirements, and experience minimums.
+- null for missing/unclear fields; empty array for requirements if none stated.
+- Extract BASE hourly rate only, not blended/OT. Weekly package = total take-home.
 - Do NOT invent data. Only extract what is explicitly stated.`;
 
-async function extractWithGemini(pageText: string): Promise<EnrichedFields | null> {
+// TODO: Implement Gemini Batch API for 50% cost savings once we scale beyond 1K URLs.
+
+async function extractWithGemini(pageText: string, jobTitle: string): Promise<EnrichedFields | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
   // Truncate to ~4000 chars to keep token usage low
   const truncated = pageText.slice(0, 4000);
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: EXTRACTION_PROMPT },
-              { text: `\n\nJob posting text:\n${truncated}` },
-            ],
-          },
+  const payload = {
+    contents: [
+      {
+        parts: [
+          { text: EXTRACTION_PROMPT },
+          { text: `\n\nJob posting text:\n${truncated}` },
         ],
-        generationConfig: {
-          temperature: 0,
-          maxOutputTokens: 1024,
-        },
-      }),
-      signal: AbortSignal.timeout(15000),
-    }
-  );
+      },
+    ],
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 1024,
+      response_mime_type: "application/json",
+    },
+  };
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 200)}`);
+  // Exponential backoff: retry on 429 with 1s, then 2s delay
+  const MAX_RETRIES = 2;
+  const BACKOFF_MS = [1000, 2000];
+
+  let lastError = "";
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      console.log(`  ↻ Retry ${attempt}/${MAX_RETRIES} for "${jobTitle}" after ${BACKOFF_MS[attempt - 1]}ms`);
+      await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt - 1]));
+    }
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
+      }
+    );
+
+    if (res.status === 429) {
+      lastError = `Gemini API 429: Rate limited`;
+      if (attempt < MAX_RETRIES) continue; // retry
+      throw new Error(lastError);
+    }
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const rawText =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+    // With response_mime_type: "application/json", Gemini returns clean JSON.
+    // Fallback: strip markdown fences just in case.
+    const cleaned = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    if (!cleaned) return null;
+
+    try {
+      const parsed = JSON.parse(cleaned) as EnrichedFields;
+      // Validate shift_type enum
+      const validShifts = ["day", "night", "rotating", "prn"];
+      if (parsed.shift_type && !validShifts.includes(parsed.shift_type)) {
+        parsed.shift_type = null;
+      }
+      // Ensure requirements is an array
+      if (!Array.isArray(parsed.requirements)) {
+        parsed.requirements = [];
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
   }
 
-  const data = await res.json();
-  const rawText =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-  // Strip markdown fences if Gemini wraps in ```json ... ```
-  const cleaned = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-  if (!cleaned) return null;
-
-  try {
-    const parsed = JSON.parse(cleaned) as EnrichedFields;
-    // Validate shift_type enum
-    const validShifts = ["day", "night", "rotating", "prn"];
-    if (parsed.shift_type && !validShifts.includes(parsed.shift_type)) {
-      parsed.shift_type = null;
-    }
-    // Ensure requirements is an array
-    if (!Array.isArray(parsed.requirements)) {
-      parsed.requirements = [];
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
+  throw new Error(lastError || "Max retries exceeded");
 }
 
 // ---------------------------------------------------------------------------
@@ -222,11 +247,13 @@ export async function POST(request: NextRequest) {
     errors: [] as { id: string; title: string; message: string }[],
   };
 
-  // 3. Process sequentially with delay to avoid Gemini rate limits (free tier)
-  const DELAY_MS = 1500; // 1.5s between Gemini calls
+  // 3. Process sequentially — 300ms delay (Paid Tier 1: 300 RPM)
+  const DELAY_MS = 300;
 
   for (let i = 0; i < jobs.length; i++) {
     const job = jobs[i] as { id: string; title: string; source_url: string; specialty: string };
+
+    console.log(`Enriching [${i + 1}/${jobs.length}] "${job.title}"... (Paid Tier)`);
 
     try {
       // Fetch page text
@@ -237,8 +264,8 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Extract with Gemini
-      const extracted = await extractWithGemini(pageText);
+      // Extract with Gemini (includes exponential backoff on 429)
+      const extracted = await extractWithGemini(pageText, job.title);
       if (!extracted) {
         results.errors.push({ id: job.id, title: job.title, message: "Gemini returned unparseable response" });
         results.jobs_failed++;
@@ -285,7 +312,7 @@ export async function POST(request: NextRequest) {
       results.jobs_failed++;
     }
 
-    // Delay between jobs to respect Gemini rate limits
+    // 300ms delay between Gemini calls (Paid Tier 1: 300 RPM headroom)
     if (i < jobs.length - 1) {
       await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
     }

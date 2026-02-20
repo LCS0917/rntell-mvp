@@ -486,28 +486,31 @@ export async function POST(request: NextRequest) {
             results.jobs_updated++;
           }
         } else {
-          // Use upsert to gracefully handle duplicate source_url (e.g. shared Workday URLs across facilities)
-          const { error: upsertErr } = await supabase
+          // Plain insert — the select+maybeSingle above already handles dedup.
+          // If a race condition causes a duplicate source_url, catch the error gracefully.
+          const { error: insertErr } = await supabase
             .from("job_postings")
-            .upsert(
-              {
-                facility_id: facility.id,
-                title: job.title,
-                specialty: job.specialty,
-                description: job.description,
-                source_url: job.source_url,
-                source_hash: contentHash,
-                data_source: "scraped",
-                is_active: true,
-                scraped_at: new Date().toISOString(),
-                last_seen_at: new Date().toISOString(),
-                ...(job.shift_type && { shift_type: job.shift_type }),
-              },
-              { onConflict: "source_url", ignoreDuplicates: true }
-            );
+            .insert({
+              facility_id: facility.id,
+              title: job.title,
+              specialty: job.specialty,
+              description: job.description,
+              source_url: job.source_url,
+              source_hash: contentHash,
+              data_source: "scraped",
+              is_active: true,
+              scraped_at: new Date().toISOString(),
+              last_seen_at: new Date().toISOString(),
+              ...(job.shift_type && { shift_type: job.shift_type }),
+            });
 
-          if (upsertErr) {
-            results.errors.push({ facility: facility.name, message: upsertErr.message });
+          if (insertErr) {
+            // Duplicate source_url — treat as skip, not error
+            if (insertErr.code === "23505") {
+              results.jobs_skipped++;
+            } else {
+              results.errors.push({ facility: facility.name, message: insertErr.message });
+            }
           } else {
             results.jobs_created++;
           }
