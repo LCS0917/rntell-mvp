@@ -1,9 +1,18 @@
 /**
  * POST /api/admin/scrape-jobs/run
  * --------------------------------
- * "Gemini-First" pipeline: For each facility, finds the careers/jobs page,
- * scrapes ALL anchor tags, asks Gemini to pick the top 5 travel/contract
- * nurse URLs, fetches those pages, enriches inline, and upserts.
+ * "Universal Discovery" pipeline: For each facility, uses Playwright to
+ * dynamically render the careers page (handling JS-heavy sites like
+ * CommonSpirit), collects ALL links agnostically, asks Gemini to pick the
+ * top 5 travel/contract nurse URLs, fetches those pages, enriches inline,
+ * and upserts.
+ *
+ * Key improvements over previous version:
+ * 1. DYNAMIC RENDERING via Playwright (waits for networkidle / job containers)
+ * 2. AGNOSTIC LINK COLLECTION — captures text, url, AND title attributes
+ * 3. Updated Gemini selection prompt for universal discovery
+ * 4. Robust redirect/timeout handling for Indeed/LinkedIn external links
+ * 5. Inline enrichment immediately after link selection
  *
  * Request body:
  *   { state?: string }
@@ -16,6 +25,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { chromium, type Browser } from "playwright";
 
 export const maxDuration = 120;
 
@@ -36,6 +46,7 @@ interface FacilityRow {
 interface LinkEntry {
   text: string;
   url: string;
+  title: string | null;
 }
 
 interface EnrichedFields {
@@ -76,8 +87,101 @@ const CAREER_PATHS = [
   "/work-with-us", "/join-our-team", "/nursing-careers", "/nursing-jobs",
 ];
 
+/** Domains that are external job boards — redirect traps we want to skip */
+const EXTERNAL_REDIRECT_DOMAINS = [
+  "indeed.com", "linkedin.com", "glassdoor.com", "ziprecruiter.com",
+  "monster.com", "careerbuilder.com", "simplyhired.com",
+];
+
 // ---------------------------------------------------------------------------
-// Step 1: Find careers page and scrape ALL anchor tags
+// Playwright: Dynamic rendering + agnostic link collection
+// ---------------------------------------------------------------------------
+
+/**
+ * Launch Playwright, navigate to the careers page, wait for dynamic content,
+ * and extract ALL <a> tags with text, href, and title attributes.
+ */
+async function scrapeLinksWithPlaywright(
+  browser: Browser,
+  pageUrl: string,
+): Promise<LinkEntry[]> {
+  const context = await browser.newContext({
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    viewport: { width: 1280, height: 800 },
+  });
+
+  const page = await context.newPage();
+  const links: LinkEntry[] = [];
+
+  try {
+    // Navigate with a generous timeout — dynamic sites can be slow
+    await page.goto(pageUrl, {
+      waitUntil: "networkidle",
+      timeout: 20000,
+    });
+
+    // Additional wait: try to find job-item containers that indicate content loaded
+    // This handles sites like CommonSpirit that render job lists via JS
+    try {
+      await page.waitForSelector(
+        '[class*="job"], [class*="Job"], [class*="posting"], [class*="Posting"], ' +
+        '[class*="position"], [class*="Position"], [class*="search-result"], ' +
+        '[data-job], [data-posting], article, .card, .list-item',
+        { timeout: 5000 },
+      );
+    } catch {
+      // No job containers found — that's OK, we'll still scrape whatever links exist
+    }
+
+    // Also follow "View All" / "See All" / "Show More" pagination links by clicking them
+    try {
+      const viewAllBtn = page.locator(
+        'a:text-matches("view all|see all|all jobs|all openings|all positions|show more|load more", "i"), ' +
+        'button:text-matches("view all|see all|all jobs|all openings|all positions|show more|load more", "i")',
+      ).first();
+      if (await viewAllBtn.isVisible({ timeout: 2000 })) {
+        await viewAllBtn.click();
+        await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+      }
+    } catch {
+      // No pagination button found — continue
+    }
+
+    // AGNOSTIC LINK COLLECTION: Extract EVERY <a> tag on the page
+    const rawLinks = await page.evaluate(() => {
+      const anchors = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]"));
+      return anchors.map((a) => ({
+        text: (a.textContent || "").replace(/\s+/g, " ").trim(),
+        url: a.href,
+        title: a.getAttribute("title") || null,
+      }));
+    });
+
+    // Deduplicate and filter
+    const seen = new Set<string>();
+    for (const link of rawLinks) {
+      if (!link.url || link.url.startsWith("javascript:") || link.url.startsWith("mailto:") || link.url.startsWith("tel:") || link.url === "#") continue;
+      if (!link.text && !link.title) continue;
+      if ((link.text || "").length < 2 && !link.title) continue;
+      if (seen.has(link.url)) continue;
+      seen.add(link.url);
+      links.push({
+        text: link.text || "",
+        url: link.url,
+        title: link.title,
+      });
+    }
+  } catch (e) {
+    console.error(`Playwright scrape failed for ${pageUrl}:`, e instanceof Error ? e.message : e);
+  } finally {
+    await context.close();
+  }
+
+  return links;
+}
+
+// ---------------------------------------------------------------------------
+// Fallback: Static fetch for simple pages (no JS rendering needed)
 // ---------------------------------------------------------------------------
 
 async function safeFetch(url: string, timeoutMs = 8000): Promise<{ html: string; finalUrl: string } | null> {
@@ -97,7 +201,6 @@ async function safeFetch(url: string, timeoutMs = 8000): Promise<{ html: string;
 
 /** Find the main careers/jobs page URL for a facility */
 async function findCareersPage(facility: FacilityRow): Promise<string | null> {
-  // If we already have a careers_url from a previous discover run, use it
   if (facility.careers_url) return facility.careers_url;
   if (!facility.website) return null;
 
@@ -128,78 +231,21 @@ async function findCareersPage(facility: FacilityRow): Promise<string | null> {
   return null;
 }
 
-/** Scrape all anchor tags from a page. Returns { text, url } pairs. */
-async function scrapeAllLinks(pageUrl: string): Promise<LinkEntry[]> {
-  const page = await safeFetch(pageUrl);
-  if (!page) return [];
-
-  const baseUrl = new URL(pageUrl);
-  const links: LinkEntry[] = [];
-  const seen = new Set<string>();
-
-  // Match all <a> tags with href and inner text
-  const anchorMatches = [...page.html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
-
-  for (const [, href, rawText] of anchorMatches) {
-    if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) continue;
-
-    const text = rawText.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-    if (!text || text.length < 3) continue;
-
-    // Make URL absolute
-    let absoluteUrl: string;
-    try {
-      absoluteUrl = href.startsWith("http") ? href : new URL(href, baseUrl).href;
-    } catch {
-      continue;
-    }
-
-    // Deduplicate by URL
-    if (seen.has(absoluteUrl)) continue;
-    seen.add(absoluteUrl);
-
-    links.push({ text, url: absoluteUrl });
-  }
-
-  // Also follow pagination / "view all jobs" patterns and scrape those pages
-  const viewAllPattern = /view\s*all|see\s*all|all\s*jobs|all\s*openings|all\s*positions|more\s*jobs|show\s*more/i;
-  const viewAllLink = links.find((l) => viewAllPattern.test(l.text));
-  if (viewAllLink) {
-    const subPage = await safeFetch(viewAllLink.url, 5000);
-    if (subPage) {
-      const subAnchors = [...subPage.html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
-      for (const [, href, rawText] of subAnchors) {
-        if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) continue;
-        const text = rawText.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-        if (!text || text.length < 3) continue;
-        let absoluteUrl: string;
-        try {
-          absoluteUrl = href.startsWith("http") ? href : new URL(href, new URL(viewAllLink.url)).href;
-        } catch {
-          continue;
-        }
-        if (seen.has(absoluteUrl)) continue;
-        seen.add(absoluteUrl);
-        links.push({ text, url: absoluteUrl });
-      }
-    }
-  }
-
-  return links;
-}
-
 // ---------------------------------------------------------------------------
-// Step 2: Gemini link selection — pick top 5 travel nurse URLs
+// Gemini link selection — Universal Discovery prompt
 // ---------------------------------------------------------------------------
 
-const LINK_SELECTION_PROMPT = `You are a travel nursing job expert. From the list of links below, identify the URLs most likely to be **Travel Nurse** or **Contract Nursing** job postings.
+const LINK_SELECTION_PROMPT = `I am providing a list of links from a hospital careers page. Some may be navigation, some may be 'Staff' jobs, and some are 'Travel/Contract' roles.
+
+Identify the 5 best URLs for Travel/Contract Nursing assignments.
 
 SELECTION RULES:
 - Pick up to 5 URLs that look like individual job postings for travel, contract, per diem, or locum nursing roles.
 - EXPLICITLY IGNORE links that mention: "Staff", "Permanent", "FTE", "Full-Time Employee", "Residency", "New Grad", "Internship", "Volunteer", "Student", "Fellowship".
-- EXPLICITLY IGNORE links that are clearly navigation (About Us, Contact, Benefits, Login, Apply Now without a specific job, etc.)
-- PREFER links whose text mentions: travel, contract, RN, nurse, nursing, per diem, assignment, 13 weeks, stipend, ICU, ER, OR, Med/Surg, etc.
-- If no links look like travel/contract nursing jobs, return an empty array.
+- EXPLICITLY IGNORE links that are clearly navigation (About Us, Contact, Benefits, Login, Home, Privacy Policy, etc.)
+- PREFER links whose text or title mentions: travel, contract, RN, nurse, nursing, per diem, assignment, 13 weeks, stipend, ICU, ER, OR, Med/Surg, etc.
+- If no links look like travel/contract nursing jobs, look for links that say 'View Job' or 'Apply' — those may be individual job postings worth investigating.
+- If you still find nothing relevant, return an empty array.
 
 Return ONLY a JSON array of the selected URLs (strings). No markdown, no explanation.
 Example: ["https://example.com/job/123", "https://example.com/job/456"]`;
@@ -208,10 +254,13 @@ async function selectLinksWithGemini(links: LinkEntry[]): Promise<string[]> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
-  // Format links as numbered list for Gemini
+  // Format links including title attribute when present
   const linkList = links
-    .slice(0, 150) // Cap at 150 links to stay within token limits
-    .map((l, i) => `${i + 1}. "${l.text}" → ${l.url}`)
+    .slice(0, 100) // Cap at 100 links per the universal discovery spec
+    .map((l, i) => {
+      const titlePart = l.title ? ` [title: "${l.title}"]` : "";
+      return `${i + 1}. "${l.text}"${titlePart} → ${l.url}`;
+    })
     .join("\n");
 
   const payload = {
@@ -271,7 +320,76 @@ async function selectLinksWithGemini(links: LinkEntry[]): Promise<string[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Step 3: Fetch page text + Gemini enrichment (inline)
+// Robust page fetch with redirect/external domain handling
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a job page's text content. Includes:
+ * - Redirect detection: if the final URL lands on Indeed/LinkedIn/etc, skip it
+ * - Strict timeout to prevent hangs on slow redirects
+ * - JSON-LD extraction for ATS-heavy pages
+ */
+async function fetchPageText(url: string): Promise<{ text: string; skipped?: boolean; reason?: string } | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: FETCH_HEADERS,
+      redirect: "follow",
+    });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+
+    // Check if we got redirected to an external job board
+    const finalUrl = res.url;
+    const finalHost = new URL(finalUrl).hostname.toLowerCase();
+    for (const domain of EXTERNAL_REDIRECT_DOMAINS) {
+      if (finalHost.includes(domain)) {
+        return { text: "", skipped: true, reason: `Redirected to ${domain} — skipped` };
+      }
+    }
+
+    const html = await res.text();
+
+    // Extract JSON-LD structured data (Workday and many ATS use this)
+    const jsonLdMatches = [...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+    let jsonLdText = "";
+    for (const match of jsonLdMatches) {
+      try {
+        const data = JSON.parse(match[1]);
+        jsonLdText += JSON.stringify(data, null, 2) + "\n";
+      } catch {
+        // Skip malformed JSON-LD
+      }
+    }
+
+    // Extract visible text content
+    const visibleText = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const combined = (jsonLdText + "\n\n" + visibleText).trim();
+    if (jsonLdText.length > 50) return { text: combined };
+    if (visibleText.length < 50) return null;
+    return { text: combined };
+  } catch (e) {
+    // AbortError means we hit our timeout — likely a redirect chain
+    if (e instanceof Error && e.name === "AbortError") {
+      return { text: "", skipped: true, reason: "Timeout — likely redirect chain" };
+    }
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Gemini enrichment
 // ---------------------------------------------------------------------------
 
 const EXTRACTION_PROMPT = `You are a data extraction expert for travel nursing job postings. Extract job details into raw JSON. Do not include markdown formatting or conversational filler. Use null for missing values.
@@ -300,45 +418,6 @@ Rules:
 - null for missing/unclear fields; empty array for requirements if none stated.
 - Extract BASE hourly rate only, not blended/OT. Weekly package = total take-home.
 - Do NOT invent data. Only extract what is explicitly stated.`;
-
-async function fetchPageText(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
-      headers: FETCH_HEADERS,
-      redirect: "follow",
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-
-    // Extract JSON-LD structured data (Workday and many ATS use this)
-    const jsonLdMatches = [...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
-    let jsonLdText = "";
-    for (const match of jsonLdMatches) {
-      try {
-        const data = JSON.parse(match[1]);
-        jsonLdText += JSON.stringify(data, null, 2) + "\n";
-      } catch {
-        // Skip malformed JSON-LD
-      }
-    }
-
-    // Extract visible text content
-    const visibleText = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    const combined = (jsonLdText + "\n\n" + visibleText).trim();
-    if (jsonLdText.length > 50) return combined;
-    if (visibleText.length < 50) return null;
-    return combined;
-  } catch {
-    return null;
-  }
-}
 
 async function enrichWithGemini(pageText: string, jobUrl: string): Promise<EnrichedFields | null> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -492,7 +571,17 @@ export async function POST(request: NextRequest) {
   };
 
   const allFacilities = (facilities as FacilityRow[]) ?? [];
-  const BATCH_SIZE = 3; // Smaller batch — each facility now makes Gemini calls
+
+  // Launch a single Playwright browser instance shared across all facilities
+  let browser: Browser | null = null;
+  try {
+    browser = await chromium.launch({ headless: true });
+  } catch (e) {
+    // If Playwright/Chromium isn't available, we'll fall back to static fetch
+    console.warn("Playwright launch failed, falling back to static fetch:", e instanceof Error ? e.message : e);
+  }
+
+  const BATCH_SIZE = 3; // Smaller batch — each facility makes multiple Gemini calls
 
   async function processFacility(facility: FacilityRow) {
     const detail: FacilityDetail = {
@@ -523,18 +612,27 @@ export async function POST(request: NextRequest) {
           .eq("id", facility.id);
       }
 
-      // --- Phase 2: Scrape ALL links from careers page ---
-      const allLinks = await scrapeAllLinks(careersUrl);
+      // --- Phase 2: DYNAMIC RENDERING + AGNOSTIC LINK COLLECTION ---
+      let allLinks: LinkEntry[];
+
+      if (browser) {
+        // Use Playwright for dynamic rendering — handles JS-heavy sites
+        allLinks = await scrapeLinksWithPlaywright(browser, careersUrl);
+      } else {
+        // Fallback to static fetch if Playwright unavailable
+        allLinks = await scrapeAllLinksStatic(careersUrl);
+      }
+
       detail.links_found = allLinks.length;
 
       if (allLinks.length === 0) {
-        detail.debug = "No links found on careers page";
+        detail.debug = "No links found on careers page" + (browser ? " (Playwright)" : " (static)");
         results.details.push(detail);
         results.facilities_processed++;
         return;
       }
 
-      // --- Phase 3: INTELLIGENT LINK SELECTION via Gemini ---
+      // --- Phase 3: GEMINI LINK SELECTION (first 100 links) ---
       const selectedUrls = await selectLinksWithGemini(allLinks);
       detail.gemini_selected = selectedUrls.length;
 
@@ -548,21 +646,33 @@ export async function POST(request: NextRequest) {
       // 300ms delay after link selection call before enrichment calls
       await new Promise((r) => setTimeout(r, 300));
 
-      // --- Phase 4: TARGETED SCRAPING + PARALLEL ENRICHMENT ---
+      // --- Phase 4: INLINE ENRICHMENT with redirect protection ---
       const seenSourceUrls = new Set<string>();
 
       for (const jobUrl of selectedUrls) {
         seenSourceUrls.add(jobUrl);
 
-        // Fetch the full page text
-        const pageText = await fetchPageText(jobUrl);
-        if (!pageText || pageText.length < 50) {
+        // Fetch the full page text with redirect/timeout protection
+        const pageResult = await fetchPageText(jobUrl);
+
+        if (!pageResult) {
           results.errors.push({ facility: facility.name, message: `Could not fetch ${jobUrl}` });
           continue;
         }
 
+        // Skip external redirects (Indeed, LinkedIn, etc.)
+        if (pageResult.skipped) {
+          results.errors.push({ facility: facility.name, message: `${pageResult.reason}: ${jobUrl}` });
+          continue;
+        }
+
+        if (pageResult.text.length < 50) {
+          results.errors.push({ facility: facility.name, message: `Page too short: ${jobUrl}` });
+          continue;
+        }
+
         // Enrich with Gemini (inline — no separate step)
-        const extracted = await enrichWithGemini(pageText, jobUrl);
+        const extracted = await enrichWithGemini(pageResult.text, jobUrl);
 
         // 300ms delay between Gemini calls
         await new Promise((r) => setTimeout(r, 300));
@@ -583,8 +693,7 @@ export async function POST(request: NextRequest) {
         const specialty = extracted.specialty || inferSpecialty(title);
         const contentHash = hashContent(title + (extracted.description || "") + jobUrl);
 
-        // --- Phase 5: UPSERT with ON CONFLICT ---
-        // Check for existing job by source_url
+        // --- Phase 5: UPSERT ---
         const { data: existing } = await supabase
           .from("job_postings")
           .select("id, source_hash")
@@ -673,7 +782,8 @@ export async function POST(request: NextRequest) {
       }
 
       results.jobs_deactivated += detail.jobs_deactivated;
-      detail.debug = `${allLinks.length} links → Gemini picked ${selectedUrls.length} → ${detail.jobs_saved} saved`;
+      detail.debug = `${allLinks.length} links → Gemini picked ${selectedUrls.length} → ${detail.jobs_saved} saved` +
+        (browser ? " (Playwright)" : " (static)");
     } catch (e) {
       results.errors.push({
         facility: facility.name,
@@ -686,10 +796,99 @@ export async function POST(request: NextRequest) {
   }
 
   // Process facilities in batches of 3 (each makes multiple Gemini calls)
-  for (let i = 0; i < allFacilities.length; i += BATCH_SIZE) {
-    const batch = allFacilities.slice(i, i + BATCH_SIZE);
-    await Promise.all(batch.map(processFacility));
+  try {
+    for (let i = 0; i < allFacilities.length; i += BATCH_SIZE) {
+      const batch = allFacilities.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(processFacility));
+    }
+  } finally {
+    // Always close the browser when done
+    if (browser) {
+      await browser.close();
+    }
   }
 
   return NextResponse.json(results);
+}
+
+// ---------------------------------------------------------------------------
+// Static fallback: scrape links without Playwright
+// ---------------------------------------------------------------------------
+
+async function scrapeAllLinksStatic(pageUrl: string): Promise<LinkEntry[]> {
+  const page = await safeFetch(pageUrl);
+  if (!page) return [];
+
+  const baseUrl = new URL(pageUrl);
+  const links: LinkEntry[] = [];
+  const seen = new Set<string>();
+
+  // Match all <a> tags with href, inner text, and title attribute
+  const anchorMatches = [...page.html.matchAll(/<a([^>]*)>([\s\S]*?)<\/a>/gi)];
+
+  for (const [, attrs, rawText] of anchorMatches) {
+    // Extract href
+    const hrefMatch = attrs.match(/href=["']([^"']+)["']/i);
+    if (!hrefMatch) continue;
+    const href = hrefMatch[1];
+
+    if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) continue;
+
+    // Extract title attribute
+    const titleMatch = attrs.match(/title=["']([^"']+)["']/i);
+    const title = titleMatch ? titleMatch[1].trim() : null;
+
+    const text = rawText.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    if (!text && !title) continue;
+    if (text.length < 3 && !title) continue;
+
+    // Make URL absolute
+    let absoluteUrl: string;
+    try {
+      absoluteUrl = href.startsWith("http") ? href : new URL(href, baseUrl).href;
+    } catch {
+      continue;
+    }
+
+    // Deduplicate by URL
+    if (seen.has(absoluteUrl)) continue;
+    seen.add(absoluteUrl);
+
+    links.push({ text, url: absoluteUrl, title });
+  }
+
+  // Follow pagination / "view all jobs" patterns
+  const viewAllPattern = /view\s*all|see\s*all|all\s*jobs|all\s*openings|all\s*positions|more\s*jobs|show\s*more/i;
+  const viewAllLink = links.find((l) => viewAllPattern.test(l.text));
+  if (viewAllLink) {
+    const subPage = await safeFetch(viewAllLink.url, 5000);
+    if (subPage) {
+      const subAnchors = [...subPage.html.matchAll(/<a([^>]*)>([\s\S]*?)<\/a>/gi)];
+      for (const [, attrs, rawText] of subAnchors) {
+        const hrefMatch = attrs.match(/href=["']([^"']+)["']/i);
+        if (!hrefMatch) continue;
+        const href = hrefMatch[1];
+        if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) continue;
+
+        const titleMatch = attrs.match(/title=["']([^"']+)["']/i);
+        const title = titleMatch ? titleMatch[1].trim() : null;
+
+        const text = rawText.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+        if (!text && !title) continue;
+        if (text.length < 3 && !title) continue;
+
+        let absoluteUrl: string;
+        try {
+          absoluteUrl = href.startsWith("http") ? href : new URL(href, new URL(viewAllLink.url)).href;
+        } catch {
+          continue;
+        }
+        if (seen.has(absoluteUrl)) continue;
+        seen.add(absoluteUrl);
+        links.push({ text, url: absoluteUrl, title });
+      }
+    }
+  }
+
+  return links;
 }

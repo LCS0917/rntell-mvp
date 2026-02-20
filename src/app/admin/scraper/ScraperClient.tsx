@@ -340,10 +340,10 @@ export default function ScraperClient({
         >
           <div>
             <h2 className="text-base font-semibold text-brand-charcoal">
-              Step 2: Gemini-First Job Discovery
+              Step 2: Universal Job Discovery
             </h2>
             <p className="mt-0.5 text-xs text-brand-gray-400">
-              Scrapes ALL links from each facility&apos;s careers page, asks Gemini to pick the top 5 travel/contract nurse URLs, fetches &amp; enriches them inline.
+              Uses Playwright to dynamically render career pages (handles JS-heavy sites like CommonSpirit), collects ALL links, asks Gemini to pick the top 5 travel/contract nurse URLs, fetches &amp; enriches them inline.
             </p>
           </div>
           {showScrape ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
