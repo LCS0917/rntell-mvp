@@ -87,14 +87,15 @@ async function fetchWorkdayJobs(careersUrl: string): Promise<ScrapedJob[]> {
       return postings
         .filter((p: Record<string, unknown>) => {
           const title = ((p.title as string) || "").toLowerCase();
-          return NURSE_KEYWORDS.some((kw) => title.includes(kw));
+          const hasPath = !!(p.externalPath as string);
+          return hasPath && NURSE_KEYWORDS.some((kw) => title.includes(kw));
         })
         .slice(0, 5)
         .map((p: Record<string, unknown>) => ({
           title: (p.title as string) || "Untitled",
           specialty: inferSpecialty((p.title as string) || ""),
           location: (p.locationsText as string) || "",
-          source_url: `https://${host}${(p.externalPath as string) || ""}`,
+          source_url: `https://${host}${p.externalPath as string}`,
           description: (p.bulletFields as string[])?.join(". ") || "",
           shift_type: inferShift((p.title as string) || ""),
         }));
