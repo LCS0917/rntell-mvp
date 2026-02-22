@@ -559,6 +559,15 @@ export async function POST(request: NextRequest) {
   if (body.state) {
     query = query.eq("location_state", body.state.toUpperCase());
   }
+  if (body.facilityId) {
+    query = query.eq("id", body.facilityId);
+  }
+
+  // listOnly mode — just return facility list, no scraping
+  if (body.listOnly) {
+    const { data: fList } = await query.limit(50);
+    return NextResponse.json({ facilities: (fList || []).map((f: FacilityRow) => ({ id: f.id, name: f.name })) });
+  }
 
   const { data: facilities, error: fetchErr } = await query.limit(20);
   if (fetchErr) {

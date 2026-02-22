@@ -102,29 +102,55 @@ export default function ScraperClient({
     setScrapeLoading(true);
     setScrapeError(null);
     setScrapeResult(null);
+
     try {
-      const body: Record<string, unknown> = {};
-      if (scrapeState) body.state = scrapeState;
-      const res = await fetch("/api/admin/scrape-jobs/run", {
+      const listRes = await fetch("/api/admin/scrape-jobs/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ state: scrapeState || undefined, listOnly: true }),
       });
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(
-          res.ok
-            ? "Invalid response from server"
-            : `Server error (HTTP ${res.status}) — likely timed out. Try filtering by state.`
-        );
+      const listData = await listRes.json();
+      const facilities: { id: string; name: string }[] = listData.facilities || [];
+
+      if (facilities.length === 0) {
+        setScrapeError("No facilities found for this state.");
+        setScrapeLoading(false);
+        return;
       }
-      if (!res.ok) {
-        throw new Error(data.error || `HTTP ${res.status}`);
+
+      const combined: ScrapeResult = {
+        facilities_processed: 0,
+        jobs_created: 0,
+        jobs_updated: 0,
+        jobs_skipped: 0,
+        jobs_deactivated: 0,
+        details: [],
+        errors: [],
+      };
+
+      for (const facility of facilities) {
+        try {
+          const res = await fetch("/api/admin/scrape-jobs/run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ facilityId: facility.id }),
+          });
+          const text = await res.text();
+          let data: ScrapeResult;
+          try { data = JSON.parse(text); } catch { continue; }
+          combined.facilities_processed += data.facilities_processed || 0;
+          combined.jobs_created += data.jobs_created || 0;
+          combined.jobs_updated += data.jobs_updated || 0;
+          combined.jobs_skipped += data.jobs_skipped || 0;
+          combined.jobs_deactivated += data.jobs_deactivated || 0;
+          combined.details.push(...(data.details || []));
+          combined.errors.push(...(data.errors || []));
+          setScrapeResult({ ...combined });
+        } catch {
+          combined.errors.push({ facility: facility.name, message: "Request failed" });
+        }
       }
-      setScrapeResult(data);
+
       router.refresh();
     } catch (e) {
       setScrapeError(e instanceof Error ? e.message : "Failed to scrape jobs.");
@@ -133,7 +159,7 @@ export default function ScraperClient({
     }
   }
 
-  async function handleEnrich() {
+    async function handleEnrich() {
     setEnrichLoading(true);
     setEnrichError(null);
     setEnrichResult(null);
