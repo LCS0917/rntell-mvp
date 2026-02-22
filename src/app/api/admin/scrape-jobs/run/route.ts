@@ -822,11 +822,15 @@ export async function POST(request: NextRequest) {
     results.details.push(detail);
   }
 
-  // Process facilities in batches of 3 (each makes multiple Gemini calls)
+  // Process one facility at a time to stay within Vercel timeout limits
   try {
-    for (let i = 0; i < allFacilities.length; i += BATCH_SIZE) {
-      const batch = allFacilities.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map(processFacility));
+    for (const facility of allFacilities) {
+      await Promise.race([
+        processFacility(facility),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Facility timeout')), 8000))
+      ]).catch((e) => {
+        results.errors.push({ facility: facility.name, message: e instanceof Error ? e.message : 'Timeout' });
+      });
     }
   } finally {
     // Always close the browser when done
