@@ -577,9 +577,17 @@ export async function POST(request: NextRequest) {
 
   const allFacilities = (facilities as FacilityRow[]) ?? [];
 
-  // Launch a single Playwright browser instance shared across all facilities
-// Uses Browserless.io for remote browser execution
-browser = await playwrightChromium.connect(
+// Launch a single Playwright browser instance shared across all facilities
+try {
+  // Uses Browserless.io for remote browser execution
+  browser = await playwrightChromium.connect(
+  ```
+  
+  Just add `  try {` on its own line between the comment and the browser line. Save, then run:
+  ```
+  git add .
+  git commit -m "fix: add missing try block for browserless connect"
+  git push origin main
   `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`
 );
   } catch (e) {
