@@ -584,10 +584,8 @@ export async function POST(request: NextRequest) {
     );
   } catch (e) {
     console.warn('Playwright launch failed, falling back to static fetch:', e instanceof Error ? e.message : e);
-  } catch (e) {
-    // If Chromium isn't available, we'll fall back to static fetch
-    console.warn("Playwright launch failed, falling back to static fetch:", e instanceof Error ? e.message : e);
   }
+
 
   const BATCH_SIZE = 3; // Smaller batch — each facility makes multiple Gemini calls
 
