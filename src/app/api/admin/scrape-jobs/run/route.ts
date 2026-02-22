@@ -577,19 +577,13 @@ export async function POST(request: NextRequest) {
 
   const allFacilities = (facilities as FacilityRow[]) ?? [];
 
-// Launch a single Playwright browser instance shared across all facilities
-try {
-  // Uses Browserless.io for remote browser execution
-  browser = await playwrightChromium.connect(
-  ```
-  
-  Just add `  try {` on its own line between the comment and the browser line. Save, then run:
-  ```
-  git add .
-  git commit -m "fix: add missing try block for browserless connect"
-  git push origin main
-  `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`
-);
+  // Launch a single Playwright browser instance shared across all facilities
+  try {
+    browser = await playwrightChromium.connect(
+      `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`
+    );
+  } catch (e) {
+    console.warn('Playwright launch failed, falling back to static fetch:', e instanceof Error ? e.message : e);
   } catch (e) {
     // If Chromium isn't available, we'll fall back to static fetch
     console.warn("Playwright launch failed, falling back to static fetch:", e instanceof Error ? e.message : e);
