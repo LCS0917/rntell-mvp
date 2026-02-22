@@ -26,8 +26,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { chromium as playwrightChromium, type Browser } from "playwright-core";
-import chromium from "@sparticuz/chromium";
-
 export const maxDuration = 120;
 
 // ---------------------------------------------------------------------------
@@ -580,17 +578,10 @@ export async function POST(request: NextRequest) {
   const allFacilities = (facilities as FacilityRow[]) ?? [];
 
   // Launch a single Playwright browser instance shared across all facilities
-  // Uses @sparticuz/chromium for Vercel serverless compatibility
-  let browser: Browser | null = null;
-  try {
-    // Disable GPU rendering for serverless (property is marked private in types but works at runtime)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (chromium as any).graphicsMode = false;
-    browser = await playwrightChromium.launch({
-      executablePath: await chromium.executablePath(),
-      args: chromium.args,
-      headless: true,
-    });
+// Uses Browserless.io for remote browser execution
+browser = await playwrightChromium.connect(
+  `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`
+);
   } catch (e) {
     // If Chromium isn't available, we'll fall back to static fetch
     console.warn("Playwright launch failed, falling back to static fetch:", e instanceof Error ? e.message : e);
