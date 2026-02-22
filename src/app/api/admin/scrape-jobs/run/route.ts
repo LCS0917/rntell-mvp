@@ -578,8 +578,9 @@ export async function POST(request: NextRequest) {
   const allFacilities = (facilities as FacilityRow[]) ?? [];
 
   // Launch a single Playwright browser instance shared across all facilities
+  let browser: Browser | undefined;
   try {
-    let browser = await playwrightChromium.connect(
+    browser = await playwrightChromium.connect(
       `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`
     );
   } catch (e) {
