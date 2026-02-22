@@ -579,7 +579,7 @@ export async function POST(request: NextRequest) {
 
   // Launch a single Playwright browser instance shared across all facilities
   try {
-    browser = await playwrightChromium.connect(
+    let browser = await playwrightChromium.connect(
       `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`
     );
   } catch (e) {
