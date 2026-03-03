@@ -827,7 +827,7 @@ export async function POST(request: NextRequest) {
     for (const facility of allFacilities) {
       await Promise.race([
         processFacility(facility),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Facility timeout')), 8000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Facility timeout')), 60000))
       ]).catch((e) => {
         results.errors.push({ facility: facility.name, message: e instanceof Error ? e.message : 'Timeout' });
       });
