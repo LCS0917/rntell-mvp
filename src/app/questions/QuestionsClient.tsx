@@ -47,7 +47,7 @@ export function QuestionsClient({
 
   return (
     <div className="min-h-screen bg-brand-warm">
-      {/* Header */}
+      {/* Header — matches jobs page exactly */}
       <header className="border-b border-brand-gray-200 bg-white">
         <div className="container flex h-14 items-center justify-between">
           <Link href="/" className="text-xl font-bold text-brand-orange">
@@ -74,10 +74,10 @@ export function QuestionsClient({
             </Link>
             {isLoggedIn ? (
               <Link
-                href="/smartrn"
+                href="/dashboard"
                 className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
               >
-                Get Verified Answers
+                Dashboard
               </Link>
             ) : (
               <>
@@ -88,10 +88,10 @@ export function QuestionsClient({
                   Sign In
                 </Link>
                 <Link
-                  href="/signup?from=questions"
+                  href="/signup"
                   className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
                 >
-                  Get Verified Answers
+                  Get Started
                 </Link>
               </>
             )}
@@ -100,15 +100,24 @@ export function QuestionsClient({
       </header>
 
       <div className="container py-6">
-        {/* Page title */}
-        <div className="mb-6">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-brand-charcoal">
-            <MessageCircle className="text-brand-orange" size={28} />
-            Travel Nurse Q&A
-          </h1>
-          <p className="mt-1 text-sm text-brand-gray-500">
-            Real answers from the travel nursing community — verified against market data.
-          </p>
+        {/* Page title + CTA */}
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="flex items-center gap-2 text-2xl font-bold text-brand-charcoal">
+              <MessageCircle className="text-brand-orange" size={28} />
+              Travel Nurse Q&A
+            </h1>
+            <p className="mt-1 text-sm text-brand-gray-500">
+              Real answers from the travel nursing community — verified against market data.
+            </p>
+          </div>
+          <Link
+            href={isLoggedIn ? "/smartrn" : "/signup?from=questions"}
+            className="shrink-0 flex items-center gap-2 rounded-lg bg-brand-orange px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
+          >
+            <Sparkles size={16} />
+            Get Verified Answers
+          </Link>
         </div>
 
         {/* Search */}
@@ -163,28 +172,11 @@ export function QuestionsClient({
                   </li>
                 ))}
               </ul>
-
-              {/* Get Verified Answers CTA */}
-              <div className="mt-6 rounded-xl border border-brand-orange/20 bg-brand-peach-50 p-4">
-                <p className="text-xs font-semibold text-brand-charcoal">
-                  Want personalized answers?
-                </p>
-                <p className="mt-1 text-xs text-brand-gray-500">
-                  Ask SmartRN — our AI trained on real nurse data.
-                </p>
-                <Link
-                  href={isLoggedIn ? "/smartrn" : "/signup?from=questions"}
-                  className="mt-3 flex items-center gap-1 text-xs font-medium text-brand-orange hover:text-brand-orange-hover"
-                >
-                  Get Verified Answers <ArrowRight size={12} />
-                </Link>
-              </div>
             </div>
           </aside>
 
           {/* Right: question feed */}
           <div className="min-w-0 flex-1">
-            {/* Count bar */}
             <div className="mb-4">
               <p className="text-sm text-brand-gray-500">
                 <span className="font-semibold text-brand-charcoal">{total}</span>{" "}
@@ -218,7 +210,6 @@ export function QuestionsClient({
                         <p className="mt-2 text-sm text-brand-gray-500 leading-relaxed">
                           {q.answer_excerpt}
                         </p>
-                        {/* Tags */}
                         <div className="mt-3 flex flex-wrap gap-2">
                           {q.category && (
                             <span className="rounded-full bg-brand-orange/10 px-2.5 py-0.5 text-xs font-medium text-brand-orange">
@@ -235,7 +226,6 @@ export function QuestionsClient({
                           ))}
                         </div>
                       </div>
-                      {/* Upvote */}
                       <div className="shrink-0">
                         {isLoggedIn ? (
                           <button className="flex flex-col items-center rounded-lg border border-brand-gray-200 px-3 py-2 text-brand-gray-400 hover:border-brand-orange hover:text-brand-orange transition-colors">
@@ -253,7 +243,6 @@ export function QuestionsClient({
                         )}
                       </div>
                     </div>
-                    {/* Footer */}
                     <div className="mt-3 flex items-center justify-between border-t border-brand-gray-100 pt-3">
                       <p className="text-xs text-brand-gray-400">
                         {new Date(q.created_at).toLocaleDateString("en-US", {
