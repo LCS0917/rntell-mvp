@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createServerClient } from "@/utils/supabase/server";
+import { requireAdmin, withErrorHandler } from "@/lib/api-guards";
 import { createClient } from "@supabase/supabase-js";
 
 // ---------------------------------------------------------------------------
@@ -106,25 +106,8 @@ function parseZip(address: string): string {
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
-  // 1. Auth check — admin only (cookie-based client)
-  const authClient = await createServerClient();
-  const {
-    data: { user },
-  } = await authClient.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: profile } = await authClient
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role !== "admin") {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  }
+  return withErrorHandler(async () => {
+  await requireAdmin();
 
   // Service role client for DB writes (bypasses RLS)
   const supabase = createClient(
@@ -275,5 +258,6 @@ export async function POST(request: NextRequest) {
     created,
     skipped,
     facilities,
+  });
   });
 }

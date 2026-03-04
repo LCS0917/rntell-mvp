@@ -206,36 +206,25 @@ export async function getNurses(filters?: {
     });
   }
 
-  // Get analysis/application counts per nurse
+  // Get analysis/application/doc counts per nurse in a single batch
   const nurseIds = result.map((n) => n.id);
+  const idFilter = nurseIds.length ? nurseIds : [""];
 
   const [analysesCounts, appCounts, docCounts] = await Promise.all([
-    db
-      .from("contract_analyses")
-      .select("nurse_id")
-      .in("nurse_id", nurseIds.length ? nurseIds : [""]),
-    db
-      .from("applications")
-      .select("nurse_id")
-      .in("nurse_id", nurseIds.length ? nurseIds : [""]),
-    db
-      .from("nurse_documents")
-      .select("nurse_id")
-      .in("nurse_id", nurseIds.length ? nurseIds : [""]),
+    db.from("contract_analyses").select("nurse_id").in("nurse_id", idFilter),
+    db.from("applications").select("nurse_id").in("nurse_id", idFilter),
+    db.from("nurse_documents").select("nurse_id").in("nurse_id", idFilter),
   ]);
 
-  const analysesMap = new Map<string, number>();
-  (analysesCounts.data || []).forEach((a) => {
-    analysesMap.set(a.nurse_id, (analysesMap.get(a.nurse_id) || 0) + 1);
-  });
+  const countMap = (rows: { nurse_id: string }[]) => {
+    const m = new Map<string, number>();
+    rows.forEach((r) => m.set(r.nurse_id, (m.get(r.nurse_id) || 0) + 1));
+    return m;
+  };
 
-  const appsMap = new Map<string, number>();
-  (appCounts.data || []).forEach((a) => {
-    appsMap.set(a.nurse_id, (appsMap.get(a.nurse_id) || 0) + 1);
-  });
-
-  const docsSet = new Set<string>();
-  (docCounts.data || []).forEach((d) => docsSet.add(d.nurse_id));
+  const analysesMap = countMap((analysesCounts.data || []) as { nurse_id: string }[]);
+  const appsMap = countMap((appCounts.data || []) as { nurse_id: string }[]);
+  const docsSet = new Set((docCounts.data || []).map((d) => (d as { nurse_id: string }).nurse_id));
 
   return result.map((n) => {
     const profile = n.profiles as unknown as {

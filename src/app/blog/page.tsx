@@ -1,5 +1,6 @@
 import { getPublishedBlogPosts } from '@/app/actions/blog'
 import { getCmsSection } from '@/app/actions/cms'
+import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
@@ -32,7 +33,7 @@ export default async function BlogFeedPage() {
             {featured && (
               <Link href={`/blog/${featured.slug}`} className="block mb-12 group">
                 <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-teal-700/50 transition-all">
-                  {featured.cover_image_url && <img src={featured.cover_image_url} alt={featured.title} className="w-full h-64 object-cover" />}
+                  {featured.cover_image_url && <div className="relative h-64"><Image src={featured.cover_image_url} alt={featured.title} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 1024px" /></div>}
                   <div className="p-8">
                     <div className="flex items-center gap-3 mb-4">
                       <span className="bg-teal-900/60 text-teal-300 text-xs font-semibold px-3 py-1 rounded-full">Featured</span>
@@ -50,7 +51,7 @@ export default async function BlogFeedPage() {
                 {rest.map(post => (
                   <Link key={post.id} href={`/blog/${post.slug}`} className="group block">
                     <article className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-teal-700/40 transition-all h-full flex flex-col">
-                      {post.cover_image_url && <img src={post.cover_image_url} alt={post.title} className="w-full h-44 object-cover" />}
+                      {post.cover_image_url && <div className="relative h-44"><Image src={post.cover_image_url} alt={post.title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" /></div>}
                       <div className="p-6 flex flex-col flex-1">
                         {post.tags.length > 0 && <div className="flex flex-wrap gap-1.5 mb-3">{post.tags.slice(0, 2).map(tag => <span key={tag} className="bg-gray-800 text-gray-400 text-xs px-2 py-0.5 rounded">{tag}</span>)}</div>}
                         <h2 className="text-lg font-bold text-white group-hover:text-teal-300 transition-colors mb-2">{post.title}</h2>

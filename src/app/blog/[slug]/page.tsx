@@ -1,5 +1,7 @@
 import { getBlogPostBySlug } from '@/app/actions/blog'
+import { sanitizeHtml } from '@/lib/sanitize-html'
 import { notFound } from 'next/navigation'
+import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
@@ -41,8 +43,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         <Link href="/blog" className="text-gray-500 hover:text-teal-400 text-sm transition-colors">← The RNTell Journal</Link>
       </div>
       {post.cover_image_url && (
-        <div className="max-w-3xl mx-auto px-6 mt-6">
-          <img src={post.cover_image_url} alt={post.title} className="w-full h-72 object-cover rounded-2xl" />
+        <div className="max-w-3xl mx-auto px-6 mt-6 relative h-72">
+          <Image src={post.cover_image_url} alt={post.title} fill className="object-cover rounded-2xl" sizes="(max-width: 768px) 100vw, 768px" />
         </div>
       )}
       <article className="max-w-3xl mx-auto px-6 py-10">
@@ -58,7 +60,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         </div>
         <div
           className="prose prose-invert prose-lg max-w-none prose-headings:font-bold prose-headings:text-white prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4 prose-p:text-gray-300 prose-p:leading-relaxed prose-p:mb-4 prose-li:text-gray-300 prose-strong:text-white prose-a:text-teal-400"
-          dangerouslySetInnerHTML={{ __html: `<p>${renderMarkdown(post.body)}</p>` }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(`<p>${renderMarkdown(post.body)}</p>`) }}
         />
         <div className="mt-12 p-6 bg-teal-950/40 border border-teal-800/40 rounded-2xl text-center">
           <p className="text-white font-semibold text-lg mb-2">Know your worth. Negotiate direct.</p>
