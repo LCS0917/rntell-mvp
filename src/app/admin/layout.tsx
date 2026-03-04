@@ -58,9 +58,9 @@ export default async function AdminLayout({
   if (profile?.role !== "admin") redirect("/dashboard");
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
-      <aside className="flex w-64 flex-col border-r border-brand-gray-200 bg-white">
+      <aside className="flex w-64 shrink-0 flex-col overflow-y-auto border-r border-brand-gray-200 bg-white">
         <div className="p-6">
           <Link href="/admin" className="text-xl font-bold text-brand-charcoal">
             RNTell <span className="text-sm font-normal text-brand-gray-500">Admin</span>
@@ -113,9 +113,9 @@ export default async function AdminLayout({
       </aside>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header — visually distinct from regular dashboard */}
-        <header className="flex h-16 items-center border-b border-brand-gray-200 bg-brand-charcoal px-6">
+        <header className="flex h-16 shrink-0 items-center border-b border-brand-gray-200 bg-brand-charcoal px-6">
           <p className="text-sm text-brand-gray-300">
             <span className="font-semibold text-white">RNTell Admin</span>
             <span className="mx-2 text-brand-gray-500">|</span>
@@ -124,7 +124,7 @@ export default async function AdminLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 bg-brand-gray-100 p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-brand-gray-100 p-6">{children}</main>
       </div>
     </div>
   );
