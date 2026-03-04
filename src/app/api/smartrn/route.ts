@@ -19,11 +19,11 @@ Your voice:
 - Ground your answers in the retrieved data below. Prioritize REAL RATE DATA over general advice.
 
 When answering about pay/rates:
-- ALWAYS lead with specific numbers from the rate data if available (hourly rates, stipends, weekly totals).
-- Present rate ranges (low to high) and averages when multiple data points exist.
-- Break down the pay package: hourly rate, housing stipend, meal stipend, total weekly.
-- Flag margin risk if the data shows it (weekly pay below $2,000 GSA benchmark).
-- Note the sample size so nurses know how much data backs the numbers.
+- ALWAYS lead with specific numbers from MARKET BENCHMARKS if available. These are the most reliable data source.
+- Present the range (low–high) and typical rate. Break down: hourly rate, housing stipend, meal stipend, total weekly package.
+- If nurse-reported salary data also exists, mention it to validate or add context to the benchmarks.
+- Flag margin risk if weekly pay is below $2,000 GSA benchmark.
+- If no benchmark exists for the exact query, use the closest match and note the difference.
 
 When answering general questions:
 - Be concise. Use bullet points.
@@ -74,6 +74,21 @@ interface JobRow {
     location_city: string | null;
     location_state: string | null;
   } | null;
+}
+
+interface BenchmarkRow {
+  specialty: string;
+  location_state: string;
+  shift_type: string | null;
+  hourly_rate_low: number;
+  hourly_rate_mid: number;
+  hourly_rate_high: number;
+  stipend_housing_avg: number;
+  stipend_meals_avg: number;
+  weekly_package_low: number;
+  weekly_package_mid: number;
+  weekly_package_high: number;
+  sample_note: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -321,6 +336,24 @@ function buildJobContext(rows: JobRow[]): string {
   return text;
 }
 
+function buildBenchmarkContext(rows: BenchmarkRow[]): string {
+  if (rows.length === 0) return "";
+
+  let text = "";
+  for (const b of rows) {
+    const label = [b.specialty, b.location_state, b.shift_type ? `${b.shift_type} shift` : null]
+      .filter(Boolean).join(", ");
+    text += `=== MARKET BENCHMARKS (${label}) ===\n`;
+    text += `Hourly Rate: $${b.hourly_rate_low} – $${b.hourly_rate_high} (typical $${b.hourly_rate_mid})\n`;
+    text += `Housing Stipend: ~$${b.stipend_housing_avg}/wk\n`;
+    text += `Meal Stipend: ~$${b.stipend_meals_avg}/wk\n`;
+    text += `Weekly Package: $${b.weekly_package_low} – $${b.weekly_package_high} (typical $${b.weekly_package_mid})\n`;
+    if (b.sample_note) text += `Source: ${b.sample_note}\n`;
+    text += "\n";
+  }
+  return text;
+}
+
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
@@ -347,7 +380,7 @@ export async function POST(request: NextRequest) {
     const filters = extractFilters(trimmedQuery);
 
     // 2. Run all data fetches in parallel
-    const [embeddingResult, salaryResult, jobResult] = await Promise.all([
+    const [embeddingResult, salaryResult, jobResult, benchmarkResult] = await Promise.all([
       // KB embedding search
       embedQuery(trimmedQuery).then(async (embedding) => {
         if (embedding.length === 0) return [] as KBMatch[];
@@ -404,9 +437,28 @@ export async function POST(request: NextRequest) {
         if (filters.state) rows = rows.filter((r) => r.facilities !== null);
         return rows;
       })(),
+
+      // Rate benchmarks query
+      (async () => {
+        let q = supabase
+          .from("rate_benchmarks")
+          .select("*")
+          .limit(10);
+
+        if (filters.specialty) q = q.eq("specialty", filters.specialty);
+        if (filters.state) q = q.eq("location_state", filters.state);
+        // If shift specified, get both shift-specific and overall (null) rows
+        if (filters.shift) {
+          q = q.or(`shift_type.eq.${filters.shift},shift_type.is.null`);
+        }
+
+        const { data } = await q;
+        return (data ?? []) as unknown as BenchmarkRow[];
+      })(),
     ]);
 
-    // 3. Build context
+    // 3. Build context (priority: benchmarks > salary reports > jobs > community KB)
+    const benchmarkContext = buildBenchmarkContext(benchmarkResult);
     const salaryContext = buildSalaryContext(salaryResult, filters);
     const jobContext = buildJobContext(jobResult);
 
@@ -421,7 +473,7 @@ export async function POST(request: NextRequest) {
             .join("\n\n")
         : "";
 
-    const fullContext = (salaryContext + jobContext + kbContext) || "No matching data found for this query.";
+    const fullContext = (benchmarkContext + salaryContext + jobContext + kbContext) || "No matching data found for this query.";
 
     // 4. Generate response
     const answer = await generateChat(fullContext, history, trimmedQuery);
