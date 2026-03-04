@@ -23,9 +23,6 @@ export default function Navbar() {
           Analyze an Offer
         </Link>
         <Link
-        >
-        </Link>
-        <Link
           href="/login"
           className="rounded-lg px-4 py-2 text-sm font-medium text-brand-charcoal transition-colors hover:bg-brand-gray-100"
         >
