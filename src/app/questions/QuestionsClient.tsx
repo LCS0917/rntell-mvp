@@ -47,50 +47,31 @@ export function QuestionsClient({
 
   return (
     <div className="min-h-screen bg-brand-warm">
-      {/* Header — matches jobs page exactly */}
       <header className="border-b border-brand-gray-200 bg-white">
         <div className="container flex h-14 items-center justify-between">
           <Link href="/" className="text-xl font-bold text-brand-orange">
             RNTell
           </Link>
           <nav className="flex items-center gap-4">
-            <Link
-              href="/jobs"
-              className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
-            >
+            <Link href="/jobs" className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal">
               Find Jobs
             </Link>
-            <Link
-              href="/questions"
-              className="text-sm font-medium text-brand-charcoal"
-            >
+            <Link href="/questions" className="text-sm font-medium text-brand-charcoal">
               Q&A
             </Link>
-            <Link
-              href="/analyze"
-              className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
-            >
+            <Link href="/analyze" className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal">
               Analyze an Offer
             </Link>
             {isLoggedIn ? (
-              <Link
-                href="/dashboard"
-                className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
-              >
+              <Link href="/dashboard" className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover">
                 Dashboard
               </Link>
             ) : (
               <>
-                <Link
-                  href="/login"
-                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-charcoal transition-colors hover:bg-brand-gray-100"
-                >
+                <Link href="/login" className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-charcoal transition-colors hover:bg-brand-gray-100">
                   Sign In
                 </Link>
-                <Link
-                  href="/signup"
-                  className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
-                >
+                <Link href="/signup" className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover">
                   Get Started
                 </Link>
               </>
@@ -100,7 +81,6 @@ export function QuestionsClient({
       </header>
 
       <div className="container py-6">
-        {/* Page title + CTA */}
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-bold text-brand-charcoal">
@@ -120,13 +100,9 @@ export function QuestionsClient({
           </Link>
         </div>
 
-        {/* Search */}
         <form onSubmit={handleSearch} className="mb-6">
           <div className="relative max-w-xl">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-gray-400"
-              size={16}
-            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-gray-400" size={16} />
             <input
               name="search"
               defaultValue={currentSearch}
@@ -136,9 +112,7 @@ export function QuestionsClient({
           </div>
         </form>
 
-        {/* Two-column layout */}
         <div className="flex gap-6">
-          {/* Left: category filter */}
           <aside className="hidden w-64 shrink-0 lg:block">
             <div className="sticky top-6 rounded-xl border border-brand-gray-200 bg-white p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-brand-gray-500">
@@ -175,7 +149,6 @@ export function QuestionsClient({
             </div>
           </aside>
 
-          {/* Right: question feed */}
           <div className="min-w-0 flex-1">
             <div className="mb-4">
               <p className="text-sm text-brand-gray-500">
@@ -198,9 +171,10 @@ export function QuestionsClient({
             ) : (
               <div className="space-y-3">
                 {questions.map((q) => (
-                  <div
+                  <Link
                     key={q.id}
-                    className="rounded-xl border border-brand-gray-200 bg-white p-5 transition-shadow hover:shadow-sm cursor-pointer"
+                    href={`/questions/${q.id}`}
+                    className="block rounded-xl border border-brand-gray-200 bg-white p-5 transition-all hover:shadow-md hover:border-brand-orange/30"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
@@ -226,21 +200,8 @@ export function QuestionsClient({
                           ))}
                         </div>
                       </div>
-                      <div className="shrink-0">
-                        {isLoggedIn ? (
-                          <button className="flex flex-col items-center rounded-lg border border-brand-gray-200 px-3 py-2 text-brand-gray-400 hover:border-brand-orange hover:text-brand-orange transition-colors">
-                            <span className="text-lg leading-none">▲</span>
-                            <span className="text-xs mt-0.5">Vote</span>
-                          </button>
-                        ) : (
-                          <Link
-                            href="/login?from=questions"
-                            className="flex flex-col items-center rounded-lg border border-brand-gray-200 px-3 py-2 text-brand-gray-400 hover:border-brand-orange hover:text-brand-orange transition-colors"
-                          >
-                            <span className="text-lg leading-none">▲</span>
-                            <span className="text-xs mt-0.5">Vote</span>
-                          </Link>
-                        )}
+                      <div className="shrink-0 flex items-center gap-1 text-xs text-brand-orange font-medium">
+                        Read <ArrowRight size={12} />
                       </div>
                     </div>
                     <div className="mt-3 flex items-center justify-between border-t border-brand-gray-100 pt-3">
@@ -251,15 +212,12 @@ export function QuestionsClient({
                           year: "numeric",
                         })}
                       </p>
-                      <Link
-                        href={isLoggedIn ? "/smartrn" : "/signup?from=questions"}
-                        className="flex items-center gap-1 text-xs font-medium text-brand-orange hover:text-brand-orange-hover"
-                      >
+                      <span className="flex items-center gap-1 text-xs font-medium text-brand-orange">
                         <Sparkles size={12} />
                         Get a verified answer
-                      </Link>
+                      </span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
