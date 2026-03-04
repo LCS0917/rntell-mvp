@@ -200,7 +200,7 @@ export function QuestionsClient({
                 {questions.map((q) => (
                   <div
                     key={q.id}
-                    className="rounded-xl border border-brand-gray-200 bg-white p-5 transition-shadow hover:shadow-sm"
+                    className="rounded-xl border border-brand-gray-200 bg-white p-5 transition-shadow hover:shadow-sm cursor-pointer"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
