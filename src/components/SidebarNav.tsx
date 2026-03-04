@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LogOut, DollarSign, TrendingUp, Users, FileText,
   Inbox, BarChart3, ClipboardList, ClipboardCheck, Sparkles,
-  Briefcase, HelpCircle,
+  Briefcase, HelpCircle, Layout, BookOpen,
 } from "lucide-react";
 
 type Props = {
@@ -81,6 +81,21 @@ export function SidebarNav({ role, signOut }: Props) {
             <Link href="/facility/applications" className={navClass("/facility/applications")}>
               <Inbox size={16} />
               Applications
+            </Link>
+          </>
+        )}
+        {role === "admin" && (
+          <>
+            <div className="pt-3 pb-1">
+              <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-brand-gray-400">Admin</p>
+            </div>
+            <Link href="/admin/cms" className={navClass("/admin/cms")}>
+              <Layout size={16} />
+              Page Editor
+            </Link>
+            <Link href="/admin/blog" className={navClass("/admin/blog")}>
+              <BookOpen size={16} />
+              Blog Posts
             </Link>
           </>
         )}
