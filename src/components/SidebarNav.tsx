@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LogOut, DollarSign, TrendingUp, Users, FileText,
   Inbox, BarChart3, ClipboardList, ClipboardCheck, Sparkles,
+  Briefcase, HelpCircle,
 } from "lucide-react";
 
 type Props = {
@@ -83,6 +84,17 @@ export function SidebarNav({ role, signOut }: Props) {
             </Link>
           </>
         )}
+        <div className="pt-3 pb-1">
+          <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-brand-gray-400">Explore</p>
+        </div>
+        <Link href="/jobs" className={navClass("/jobs")}>
+          <Briefcase size={16} />
+          Browse Jobs
+        </Link>
+        <Link href="/questions" className={navClass("/questions")}>
+          <HelpCircle size={16} />
+          Questions
+        </Link>
       </nav>
       <div className="border-t border-brand-gray-200 p-3">
         <form action={signOut}>
