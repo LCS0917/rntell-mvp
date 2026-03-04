@@ -26,6 +26,8 @@ const navItems = [
   { href: "/admin/credentials", label: "Credentials", icon: ShieldCheck, comingSoon: true },
   { href: "/admin/fees", label: "Fees", icon: DollarSign, comingSoon: true },
   { href: "/admin/settings", label: "Settings", icon: Settings, comingSoon: false },
+  { href: "/admin/cms", label: "Page Editor", icon: LayoutDashboard, comingSoon: false },
+  { href: "/admin/blog", label: "Blog Posts", icon: FileSearch, comingSoon: false },
 ];
 
 async function signOut() {
