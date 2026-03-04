@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LogOut, DollarSign, TrendingUp, Users, FileText,
+  LogOut, DollarSign, Users, FileText,
   Inbox, BarChart3, ClipboardList, ClipboardCheck, Sparkles,
   Briefcase, HelpCircle, Layout, BookOpen,
 } from "lucide-react";
@@ -47,13 +47,9 @@ export function SidebarNav({ role, signOut }: Props) {
             <Link href="/nurse" className={navClass("/nurse")}>
               My License HQ
             </Link>
-            <Link href="/nurse/pay-intelligence" className={navClass("/nurse/pay-intelligence")}>
-              <TrendingUp size={16} />
-              Pay Intelligence
-            </Link>
-            <Link href="/nurse/salary" className={navClass("/nurse/salary")}>
+            <Link href="/nurse/pay" className={navClass("/nurse/pay")}>
               <DollarSign size={16} />
-              Pay Database
+              Pay Center
             </Link>
             <Link href="/nurse/social" className={navClass("/nurse/social")}>
               <Users size={16} />

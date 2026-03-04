@@ -54,7 +54,7 @@ export function SalarySubmitForm({ facilities }: { facilities: Facility[] }) {
       if (result.error) {
         setError(result.error);
       } else {
-        router.push("/nurse/salary");
+        router.push("/nurse/pay");
       }
     });
   }
@@ -180,11 +180,11 @@ export function SalarySubmitForm({ facilities }: { facilities: Facility[] }) {
       {/* Actions */}
       <div className="flex items-center justify-between pt-2">
         <Link
-          href="/nurse/salary"
+          href="/nurse/pay"
           className="inline-flex items-center gap-1 text-sm text-brand-gray-500 hover:text-brand-charcoal"
         >
           <ArrowLeft size={14} />
-          Back to Pay Database
+          Back to Pay Center
         </Link>
         <button
           type="submit"

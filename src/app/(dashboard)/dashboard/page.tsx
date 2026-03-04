@@ -155,7 +155,7 @@ export default async function MarketSnapshotPage() {
           </p>
           {role === "nurse" && (
             <Link
-              href="/nurse/salary/submit"
+              href="/nurse/pay/submit"
               className="mt-6 inline-flex items-center gap-2 rounded-lg bg-brand-orange px-4 py-2 text-sm font-medium text-white hover:bg-brand-orange-hover"
             >
               Be the first to contribute

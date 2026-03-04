@@ -2,7 +2,6 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
-  TrendingUp,
   Shield,
   FileText,
   Briefcase,
@@ -96,37 +95,19 @@ export default async function NurseDashboardPage() {
       </h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Link
-          href="/nurse/pay-intelligence"
+          href="/nurse/pay"
           className="group flex items-start gap-4 rounded-xl border border-brand-gray-200 bg-white p-5 transition-shadow hover:shadow-md"
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-green-light">
-            <TrendingUp size={20} className="text-brand-success-dark" />
+            <DollarSign size={20} className="text-brand-success-dark" />
           </div>
           <div className="flex-1">
             <h3 className="font-semibold text-brand-charcoal group-hover:text-brand-orange">
-              Pay Intelligence
+              Pay Center
             </h3>
             <p className="mt-0.5 text-sm text-brand-gray-500">
-              Calculate your market value and see what you should be earning
-              direct-to-facility.
-            </p>
-          </div>
-          <ChevronRight size={16} className="mt-1 text-brand-gray-300 group-hover:text-brand-orange" />
-        </Link>
-
-        <Link
-          href="/nurse/salary"
-          className="group flex items-start gap-4 rounded-xl border border-brand-gray-200 bg-white p-5 transition-shadow hover:shadow-md"
-        >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-peach-50">
-            <DollarSign size={20} className="text-brand-orange" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-brand-charcoal group-hover:text-brand-orange">
-              Pay Database
-            </h3>
-            <p className="mt-0.5 text-sm text-brand-gray-500">
-              Browse verified salary data and spot high-margin opportunities.
+              Calculate your market value, browse salary data, and negotiate
+              with real numbers.
             </p>
           </div>
           <ChevronRight size={16} className="mt-1 text-brand-gray-300 group-hover:text-brand-orange" />
