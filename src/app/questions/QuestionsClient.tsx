@@ -92,7 +92,7 @@ export function QuestionsClient({
             </p>
           </div>
           <Link
-            href={isLoggedIn ? "/smartrn" : "/signup?from=questions"}
+            href={isLoggedIn ? "/nurse/smartrn" : "/signup?from=questions"}
             className="shrink-0 flex items-center gap-2 rounded-lg bg-brand-orange px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
           >
             <Sparkles size={16} />

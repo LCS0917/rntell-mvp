@@ -23,7 +23,7 @@ export default function Navbar() {
           Analyze an Offer
         </Link>
         <Link
-          href="/smartrn"
+          href="/nurse/smartrn"
           className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
         >
           SmartRN

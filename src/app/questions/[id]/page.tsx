@@ -155,7 +155,7 @@ export default async function QuestionDetailPage({ params }: Props) {
             SmartRN uses verified nurse data and GSA benchmarks to give you answers tailored to your contract.
           </p>
           <Link
-            href={user ? "/smartrn" : "/signup?from=questions"}
+            href={user ? "/nurse/smartrn" : "/signup?from=questions"}
             className="mt-4 inline-flex items-center gap-2 rounded-lg bg-brand-orange px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
           >
             <Sparkles size={16} />

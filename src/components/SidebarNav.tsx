@@ -37,7 +37,7 @@ export function SidebarNav({ role, signOut }: Props) {
           <BarChart3 size={16} />
           Market Snapshot
         </Link>
-        <Link href="/smartrn" className={navClass("/smartrn")}>
+        <Link href="/nurse/smartrn" className={navClass("/nurse/smartrn")}>
           <Sparkles size={16} />
           SmartRN
         </Link>
