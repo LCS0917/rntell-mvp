@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LogOut, DollarSign, TrendingUp, Users, FileText,
-  Inbox, BarChart3, ClipboardList, ClipboardCheck,
+  Inbox, BarChart3, ClipboardList, ClipboardCheck, Sparkles,
 } from "lucide-react";
 
 type Props = {
@@ -36,6 +36,10 @@ export function SidebarNav({ role, signOut }: Props) {
         <Link href="/dashboard" className={navClass("/dashboard")}>
           <BarChart3 size={16} />
           Market Snapshot
+        </Link>
+        <Link href="/smartrn" className={navClass("/smartrn")}>
+          <Sparkles size={16} />
+          SmartRN
         </Link>
         {role === "nurse" && (
           <>

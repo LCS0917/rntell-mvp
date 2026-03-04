@@ -23,6 +23,12 @@ export default function Navbar() {
           Analyze an Offer
         </Link>
         <Link
+          href="/smartrn"
+          className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
+        >
+          SmartRN
+        </Link>
+        <Link
           href="/login"
           className="rounded-lg px-4 py-2 text-sm font-medium text-brand-charcoal transition-colors hover:bg-brand-gray-100"
         >
