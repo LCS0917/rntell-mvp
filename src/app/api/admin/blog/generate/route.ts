@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) throw new Error('GEMINI_API_KEY is not configured')
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro-preview-05-06' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     const questionsContext = sampleQuestions?.length
       ? `\n\nRelated questions travel nurses are asking:\n${sampleQuestions.map((q: string) => `- ${q}`).join('\n')}`
