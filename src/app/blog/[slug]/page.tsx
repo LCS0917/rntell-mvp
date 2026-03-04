@@ -1,12 +1,9 @@
-import { getBlogPostBySlug, getPublishedBlogPosts } from '@/app/actions/blog'
+import { getBlogPostBySlug } from '@/app/actions/blog'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
-export async function generateStaticParams() {
-  const posts = await getPublishedBlogPosts()
-  return posts.map(p => ({ slug: p.slug }))
-}
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
