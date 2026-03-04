@@ -1,6 +1,6 @@
 import { Upload, BarChart3, CheckCircle } from "lucide-react";
 
-const steps = [
+const DEFAULT_STEPS = [
   {
     icon: Upload,
     title: "Analyze Your Offer",
@@ -21,10 +21,20 @@ const steps = [
   },
 ];
 
-export default function HowItWorks() {
+const ICONS = [Upload, BarChart3, CheckCircle];
+
+interface HowItWorksProps {
+  steps?: { title: string; description: string }[];
+}
+
+export default function HowItWorks({ steps }: HowItWorksProps) {
+  const items = steps && steps.length === 3
+    ? steps.map((s, i) => ({ ...s, icon: ICONS[i] }))
+    : DEFAULT_STEPS;
+
   return (
     <div className="grid gap-8 md:grid-cols-3">
-      {steps.map((step, i) => (
+      {items.map((step, i) => (
         <div key={step.title} className="flex flex-col items-center text-center">
           <div className="relative mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-orange/10">
             <step.icon className="h-8 w-8 text-brand-orange" />

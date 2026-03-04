@@ -101,7 +101,13 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
         section_key: 'how_it_works',
         label: 'How It Works',
         fields: [
-          { key: 'headline', label: 'Section Headline', type: 'text' },
+          { key: 'headline', label: 'Section Headline', type: 'text', placeholder: 'How It Works' },
+          { key: 'step1_title', label: 'Step 1 Title', type: 'text', placeholder: 'Analyze Your Offer' },
+          { key: 'step1_desc', label: 'Step 1 Description', type: 'textarea', placeholder: 'Enter your contract details or upload a PDF. Get an instant financial breakdown.' },
+          { key: 'step2_title', label: 'Step 2 Title', type: 'text', placeholder: 'Compare to Market' },
+          { key: 'step2_desc', label: 'Step 2 Description', type: 'textarea', placeholder: 'See how your pay, stipends, and benefits compare to GSA benchmarks and market data.' },
+          { key: 'step3_title', label: 'Step 3 Title', type: 'text', placeholder: 'Apply Direct' },
+          { key: 'step3_desc', label: 'Step 3 Description', type: 'textarea', placeholder: 'Apply directly to facilities. No middlemen. No margin on your pay.' },
         ],
       },
       {

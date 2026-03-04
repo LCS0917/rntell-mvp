@@ -41,9 +41,10 @@ export async function updateCmsSection(
 
   const { error } = await supabase
     .from('cms_pages')
-    .update({ content, updated_by: user.id })
-    .eq('page_key', pageKey)
-    .eq('section_key', sectionKey)
+    .upsert(
+      { page_key: pageKey, section_key: sectionKey, label: sectionKey, content, updated_by: user.id },
+      { onConflict: 'page_key,section_key' }
+    )
 
   if (error) return { success: false, error: error.message }
 
