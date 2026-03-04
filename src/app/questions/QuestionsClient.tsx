@@ -6,15 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { PublicQuestion } from "@/app/actions/questions";
 import { CATEGORY_LABELS, CATEGORIES } from "@/lib/question-categories";
 
-  { value: "pay_and_contracts", label: "Pay & Contracts" },
-  { value: "agency_vs_direct_hire", label: "Agency vs Direct-Hire" },
-  { value: "housing_and_stipends", label: "Housing & Stipends" },
-  { value: "taxes_and_insurance", label: "Taxes & Insurance" },
-  { value: "licensing_and_compliance", label: "Licensing & Compliance" },
-  { value: "facility_reviews", label: "Facility Reviews" },
-  { value: "getting_started", label: "Getting Started" },
-];
-
 export function QuestionsClient({
   questions,
   total,
