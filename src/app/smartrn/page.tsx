@@ -151,9 +151,9 @@ export default function SmartRNPage() {
 
       {/* Chat area */}
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-6">
-        {/* Empty state */}
+        {/* Header — always visible when no messages */}
         {messages.length === 0 && !loading && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-6">
+          <div className="flex flex-col items-center gap-2 pt-6 pb-4">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-orange/10">
                 <Sparkles size={24} className="text-brand-orange" />
@@ -171,17 +171,6 @@ export default function SmartRNPage() {
               Ask me anything about travel nursing — pay rates, stipends,
               contracts, negotiation, housing, and more.
             </p>
-            <div className="grid w-full max-w-lg gap-2">
-              {STARTER_QUESTIONS.map((q) => (
-                <button
-                  key={q}
-                  onClick={() => sendMessage(q)}
-                  className="rounded-lg border border-brand-gray-200 bg-white px-4 py-3 text-left text-sm text-brand-charcoal transition-colors hover:border-brand-orange hover:bg-brand-orange/5"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
           </div>
         )}
 
@@ -303,6 +292,20 @@ export default function SmartRNPage() {
             SmartRN answers are based on community data and may not be fully
             accurate. Always verify with the facility.
           </p>
+          {/* Starter questions below input */}
+          {messages.length === 0 && !loading && (
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              {STARTER_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => sendMessage(q)}
+                  className="rounded-full border border-brand-gray-200 bg-white px-3 py-1.5 text-xs text-brand-charcoal transition-colors hover:border-brand-orange hover:bg-brand-orange/5"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
