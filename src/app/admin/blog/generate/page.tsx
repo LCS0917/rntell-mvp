@@ -2,23 +2,45 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import { getGenerationQueue, getTrendingTopicsForGeneration, approveGeneratedPost, rejectGeneratedPost } from '@/app/actions/blog'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 interface TrendingTopic { id: string; topic: string; mention_count: number; category?: string; sample_questions: { id: string; question_text: string; category: string }[] }
 interface QueueItem { id: string; suggested_title: string; trending_keywords: string[]; status: string; generated_post_id: string | null; error_message: string | null; created_at: string; source_question_ids: string[] }
 
+function generateBlogIdea(topic: TrendingTopic): { title: string; description: string } {
+  const t = topic.topic.replace(/_/g, ' ')
+  const titleMap: Record<string, string> = {
+    contract_value: 'How to Calculate the Real Value of Your Travel Nursing Contract',
+    low_rates: 'Are You Being Underpaid? How to Spot Below-Market Travel Nurse Rates',
+    burnout: 'Burnout in Travel Nursing: Warning Signs and What You Can Actually Do',
+    pay: 'Travel Nurse Pay Breakdown: Understanding Your Full Compensation Package',
+    contract_cancellation: 'Contract Cancellations: Your Rights and How to Protect Yourself',
+    contract_terms: 'Red Flags in Travel Nurse Contracts: What to Watch For Before You Sign',
+    facility_issues: 'How to Research a Facility Before Accepting an Assignment',
+  }
+  const title = titleMap[topic.topic] || `${t.charAt(0).toUpperCase() + t.slice(1)}: What Every Travel Nurse Should Know`
+
+  const q = topic.sample_questions[0]?.question_text
+  const description = q
+    ? `Based on ${topic.mention_count} community mentions. Nurses are asking: "${q.length > 80 ? q.slice(0, 77) + '...' : q}"`
+    : `Trending with ${topic.mention_count} community mentions. Covers key concerns nurses have about ${t.toLowerCase()}.`
+
+  return { title, description }
+}
+
 export default function BlogGeneratePage() {
+  const router = useRouter()
   const [topics, setTopics] = useState<TrendingTopic[]>([])
   const [queue, setQueue] = useState<QueueItem[]>([])
-  const [selected, setSelected] = useState<TrendingTopic | null>(null)
-  const [customTitle, setCustomTitle] = useState('')
   const [generating, setGenerating] = useState<string | null>(null)
+  const [genError, setGenError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const [t, q] = await Promise.all([getTrendingTopicsForGeneration(25), getGenerationQueue()])
+      const [t, q] = await Promise.all([getTrendingTopicsForGeneration(5), getGenerationQueue()])
       setTopics(t as TrendingTopic[])
       setQueue(q as QueueItem[])
       setLoading(false)
@@ -27,44 +49,112 @@ export default function BlogGeneratePage() {
   }, [])
 
   async function handleGenerate(topic: TrendingTopic) {
+    const idea = generateBlogIdea(topic)
     setGenerating(topic.topic)
-    const res = await fetch('/api/admin/blog/queue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ suggested_title: customTitle || `${topic.topic}: What Every Travel Nurse Needs to Know`, ai_prompt: topic.topic, source_question_ids: topic.sample_questions.map(q => q.id), trending_keywords: [topic.topic] }) })
-    const { queueId } = await res.json()
-    await fetch('/api/admin/blog/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ queueId, topic: topic.topic, keywords: [topic.topic], suggestedTitle: customTitle || undefined, sampleQuestions: topic.sample_questions.map(q => q.question_text), sourceQuestionIds: topic.sample_questions.map(q => q.id) }) })
-    setGenerating(null); setCustomTitle(''); setSelected(null)
-    const q = await getGenerationQueue(); setQueue(q as QueueItem[])
+    setGenError(null)
+
+    try {
+      const queueRes = await fetch('/api/admin/blog/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          suggested_title: idea.title,
+          ai_prompt: topic.topic,
+          source_question_ids: topic.sample_questions.map(q => q.id),
+          trending_keywords: [topic.topic],
+        }),
+      })
+      const { queueId, error: queueError } = await queueRes.json()
+      if (!queueId) throw new Error(queueError || 'Failed to create queue item')
+
+      const genRes = await fetch('/api/admin/blog/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          queueId,
+          topic: topic.topic,
+          keywords: [topic.topic],
+          suggestedTitle: idea.title,
+          sampleQuestions: topic.sample_questions.map(q => q.question_text),
+          sourceQuestionIds: topic.sample_questions.map(q => q.id),
+        }),
+      })
+      const genData = await genRes.json()
+
+      if (genData.postId) {
+        router.push(`/admin/blog/${genData.postId}/edit`)
+        return
+      }
+      if (genData.error) throw new Error(genData.error)
+
+      // Fallback: refresh queue
+      const q = await getGenerationQueue()
+      setQueue(q as QueueItem[])
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : 'Generation failed')
+    } finally {
+      setGenerating(null)
+    }
   }
 
   const pendingQueue = queue.filter(q => q.status === 'generated')
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2"><span className="text-purple-400">✦</span> AI Blog Generation</h1>
-          <p className="text-gray-400 text-sm mt-1">Generate posts from trending topics in your Q&A knowledge base</p>
+          <h1 className="text-2xl font-bold text-brand-charcoal flex items-center gap-2">
+            <span className="text-brand-orange">&#10038;</span> AI Blog Generation
+          </h1>
+          <p className="text-brand-gray-500 text-sm mt-1">Generate posts from trending community topics</p>
         </div>
-        <Link href="/admin/blog" className="text-gray-500 hover:text-white text-sm transition-colors">← All Posts</Link>
+        <Link href="/admin/blog" className="text-brand-gray-400 hover:text-brand-charcoal text-sm transition-colors">&larr; All Posts</Link>
       </div>
 
+      {genError && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-red-700 text-sm">
+          {genError}
+        </div>
+      )}
+
+      {/* Pending approval queue */}
       {pendingQueue.length > 0 && (
         <div className="mb-10">
-          <h2 className="text-lg font-semibold text-white mb-4">Pending Approval <span className="ml-2 bg-amber-900/60 text-amber-300 text-xs px-2 py-0.5 rounded-full font-medium">{pendingQueue.length}</span></h2>
-          <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-brand-charcoal mb-4">
+            Pending Approval
+            <span className="ml-2 bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full font-medium">{pendingQueue.length}</span>
+          </h2>
+          <div className="space-y-3">
             {pendingQueue.map(item => (
-              <div key={item.id} className="bg-gray-900 border border-amber-700/30 rounded-xl p-5">
+              <div key={item.id} className="bg-white border border-amber-200 rounded-xl p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <p className="font-semibold text-white">{item.suggested_title}</p>
+                    <p className="font-semibold text-brand-charcoal">{item.suggested_title}</p>
                     <div className="flex items-center gap-3 mt-2">
-                      {item.trending_keywords.map(k => <span key={k} className="bg-purple-900/40 text-purple-300 text-xs px-2 py-0.5 rounded">{k}</span>)}
-                      <span className="text-gray-600 text-xs">{new Date(item.created_at).toLocaleDateString()}</span>
+                      {item.trending_keywords.map(k => <span key={k} className="bg-brand-gray-100 text-brand-gray-500 text-xs px-2 py-0.5 rounded">{k.replace(/_/g, ' ')}</span>)}
+                      <span className="text-brand-gray-400 text-xs">{new Date(item.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {item.generated_post_id && <Link href={`/admin/blog/${item.generated_post_id}/edit`} className="text-xs text-gray-400 hover:text-white border border-gray-700 px-3 py-1.5 rounded-lg transition-colors">Preview & Edit</Link>}
-                    <button onClick={() => startTransition(async () => { await rejectGeneratedPost(item.id); const q = await getGenerationQueue(); setQueue(q as QueueItem[]) })} disabled={isPending} className="text-xs text-red-400 hover:text-red-300 border border-red-900/40 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">Reject</button>
-                    <button onClick={() => item.generated_post_id && startTransition(async () => { await approveGeneratedPost(item.id, item.generated_post_id!); const q = await getGenerationQueue(); setQueue(q as QueueItem[]) })} disabled={isPending || !item.generated_post_id} className="text-xs text-white bg-teal-600 hover:bg-teal-500 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 font-medium">Approve & Publish</button>
+                    {item.generated_post_id && (
+                      <Link href={`/admin/blog/${item.generated_post_id}/edit`} className="text-xs text-brand-gray-500 hover:text-brand-charcoal border border-brand-gray-200 px-3 py-1.5 rounded-lg transition-colors">
+                        Preview & Edit
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => startTransition(async () => { await rejectGeneratedPost(item.id); const q = await getGenerationQueue(); setQueue(q as QueueItem[]) })}
+                      disabled={isPending}
+                      className="text-xs text-red-500 hover:text-red-600 border border-red-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => item.generated_post_id && startTransition(async () => { await approveGeneratedPost(item.id, item.generated_post_id!); const q = await getGenerationQueue(); setQueue(q as QueueItem[]) })}
+                      disabled={isPending || !item.generated_post_id}
+                      className="text-xs text-white bg-brand-orange hover:bg-brand-orange-hover px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 font-medium"
+                    >
+                      Approve & Publish
+                    </button>
                   </div>
                 </div>
               </div>
@@ -73,40 +163,58 @@ export default function BlogGeneratePage() {
         </div>
       )}
 
+      {/* Blog post ideas from trending topics */}
       <div>
-        <h2 className="text-lg font-semibold text-white mb-2">Trending Topics</h2>
-        <p className="text-gray-500 text-sm mb-5">Sourced from your Q&A knowledge base — sorted by mention frequency</p>
-        {loading ? <div className="text-gray-500 text-sm py-10 text-center">Loading trending topics…</div> : topics.length === 0 ? <div className="text-gray-500 text-sm py-10 text-center">No trending topics found yet.</div> : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {topics.map(topic => (
-              <div key={topic.id} className={`bg-gray-900 border rounded-xl p-5 transition-all cursor-pointer ${selected?.id === topic.id ? 'border-purple-500 bg-purple-950/20' : 'border-gray-800 hover:border-gray-600'}`} onClick={() => setSelected(selected?.id === topic.id ? null : topic)}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="font-semibold text-white capitalize">{topic.topic}</p>
-                    {topic.category && <span className="text-xs text-gray-500 mt-0.5 block">{topic.category}</span>}
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-purple-400 text-xs font-medium">{topic.mention_count} mentions</span>
-                      {topic.sample_questions.length > 0 && <span className="text-gray-600 text-xs">· {topic.sample_questions.length} related questions</span>}
+        <h2 className="text-lg font-semibold text-brand-charcoal mb-1">Blog Post Ideas</h2>
+        <p className="text-brand-gray-500 text-sm mb-5">Based on what nurses are discussing most. Click to generate a full draft.</p>
+
+        {loading ? (
+          <div className="text-brand-gray-400 text-sm py-10 text-center bg-white rounded-xl border border-brand-gray-200">Loading ideas...</div>
+        ) : topics.length === 0 ? (
+          <div className="text-brand-gray-400 text-sm py-10 text-center bg-white rounded-xl border border-brand-gray-200">No trending topics found yet. Add Q&A data first.</div>
+        ) : (
+          <div className="space-y-3">
+            {topics.map(topic => {
+              const idea = generateBlogIdea(topic)
+              const isGenerating = generating === topic.topic
+
+              return (
+                <div key={topic.id} className="bg-white border border-brand-gray-200 rounded-xl p-5 hover:border-brand-gray-300 transition-colors">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-brand-charcoal">{idea.title}</p>
+                      <p className="text-brand-gray-500 text-sm mt-1">{idea.description}</p>
+                      {topic.sample_questions.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {topic.sample_questions.slice(0, 2).map(q => (
+                            <span key={q.id} className="text-xs text-brand-gray-400 bg-brand-gray-100 px-2 py-1 rounded inline-block truncate max-w-[280px]">
+                              &ldquo;{q.question_text}&rdquo;
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <span className="text-gray-600 text-lg ml-2">{selected?.id === topic.id ? '▲' : '▼'}</span>
-                </div>
-                {selected?.id === topic.id && (
-                  <div className="mt-4 pt-4 border-t border-gray-800">
-                    {topic.sample_questions.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Questions nurses are asking</p>
-                        <ul className="space-y-1.5">{topic.sample_questions.map(q => <li key={q.id} className="text-xs text-gray-300 flex gap-2"><span className="text-purple-500 shrink-0">›</span>{q.question_text}</li>)}</ul>
-                      </div>
-                    )}
-                    <input type="text" value={customTitle} onChange={e => setCustomTitle(e.target.value)} placeholder={`${topic.topic}: What Every Travel Nurse Needs to Know`} onClick={e => e.stopPropagation()} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 text-sm focus:outline-none focus:border-purple-500 mb-3" />
-                    <button onClick={(e) => { e.stopPropagation(); handleGenerate(topic) }} disabled={generating === topic.topic} className="w-full bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
-                      {generating === topic.topic ? <><span className="animate-spin">⟳</span>Generating with Gemini…</> : <><span>✦</span>Generate Post</>}
+                    <button
+                      onClick={() => handleGenerate(topic)}
+                      disabled={!!generating}
+                      className="shrink-0 bg-brand-charcoal hover:bg-brand-charcoal/90 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <span className="animate-spin inline-block">&#10227;</span>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-brand-orange">&#10038;</span>
+                          Generate
+                        </>
+                      )}
                     </button>
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

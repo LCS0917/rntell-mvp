@@ -84,10 +84,33 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
         ],
       },
       {
+        section_key: 'value_props',
+        label: 'Value Propositions',
+        fields: [
+          { key: 'headline', label: 'Section Headline', type: 'text', placeholder: 'Know More. Earn More. Own Your Career.' },
+          { key: 'subheadline', label: 'Section Subheadline', type: 'textarea', placeholder: 'RNTell gives you the financial intelligence...' },
+          { key: 'card1_title', label: 'Card 1 Title', type: 'text', placeholder: 'Real Take-Home Clarity' },
+          { key: 'card1_subtitle', label: 'Card 1 Description', type: 'textarea' },
+          { key: 'card2_title', label: 'Card 2 Title', type: 'text', placeholder: 'Federal & Long-Term Value Detection' },
+          { key: 'card2_subtitle', label: 'Card 2 Description', type: 'textarea' },
+          { key: 'card3_title', label: 'Card 3 Title', type: 'text', placeholder: 'Smarter Job Matching' },
+          { key: 'card3_subtitle', label: 'Card 3 Description', type: 'textarea' },
+        ],
+      },
+      {
         section_key: 'how_it_works',
         label: 'How It Works',
         fields: [
           { key: 'headline', label: 'Section Headline', type: 'text' },
+        ],
+      },
+      {
+        section_key: 'featured_jobs',
+        label: 'Featured Jobs',
+        fields: [
+          { key: 'headline', label: 'Section Headline', type: 'text', placeholder: 'Featured Assignments' },
+          { key: 'subheadline', label: 'Section Subheadline', type: 'textarea', placeholder: 'The latest direct-hire and verified opportunities.' },
+          { key: 'cta', label: 'CTA Button Text', type: 'text', placeholder: 'View All Jobs' },
         ],
       },
       {

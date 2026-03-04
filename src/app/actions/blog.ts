@@ -142,7 +142,7 @@ export async function rejectGeneratedPost(queueId: string): Promise<{ success: b
   return { success: true }
 }
 
-export async function getTrendingTopicsForGeneration(limit = 20) {
+export async function getTrendingTopicsForGeneration(limit = 5) {
   const supabase = await createClient()
   const { data: topics, error } = await supabase
     .from('kb_topic_mentions')

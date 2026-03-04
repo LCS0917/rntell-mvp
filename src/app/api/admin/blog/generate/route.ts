@@ -3,8 +3,6 @@ import { createClient } from '@/utils/supabase/server'
 import { requireAdmin } from '@/lib/api-guards'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-
 export async function POST(req: NextRequest) {
   const { user } = await requireAdmin()
   const supabase = await createClient()
@@ -16,6 +14,9 @@ export async function POST(req: NextRequest) {
   await supabase.from('blog_generation_queue').update({ status: 'generating' }).eq('id', queueId)
 
   try {
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) throw new Error('GEMINI_API_KEY is not configured')
+    const genAI = new GoogleGenerativeAI(apiKey)
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro-preview-05-06' })
 
     const questionsContext = sampleQuestions?.length
