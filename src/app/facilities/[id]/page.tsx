@@ -14,6 +14,7 @@ import {
 import { getPublicFacilityProfile } from "@/app/actions/facilities";
 import { createClient } from "@/utils/supabase/server";
 import Footer from "@/components/ui/Footer";
+import Navbar from "@/components/ui/Navbar";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -48,51 +49,7 @@ export default async function PublicFacilityPage({ params }: Props) {
   return (
     <>
       <div className="min-h-screen bg-brand-warm">
-        {/* Header */}
-        <header className="border-b border-brand-gray-200 bg-white">
-          <div className="container flex h-14 items-center justify-between">
-            <Link href="/" className="text-xl font-bold text-brand-orange">
-              RNTell
-            </Link>
-            <nav className="flex items-center gap-4">
-              <Link
-                href="/jobs"
-                className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
-              >
-                Find Jobs
-              </Link>
-              <Link
-                href="/facilities"
-                className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
-              >
-                Facilities
-              </Link>
-              {user ? (
-                <Link
-                  href="/dashboard"
-                  className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
-                >
-                  Dashboard
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-charcoal transition-colors hover:bg-brand-gray-100"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
-                  >
-                    Get Started
-                  </Link>
-                </>
-              )}
-            </nav>
-          </div>
-        </header>
+        <Navbar />
 
         <div className="container py-8">
           {/* Back link */}

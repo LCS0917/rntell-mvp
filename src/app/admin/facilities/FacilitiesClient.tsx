@@ -496,6 +496,7 @@ export default function FacilitiesClient({
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">
+              <a href={`/facility/${selected.id}`} target="_blank" rel="noopener noreferrer" className="col-span-2 flex items-center gap-1 text-xs text-brand-orange hover:underline"><MapPin size={12} />{`/facility/${selected.id}`}</a>
               <Detail label="City" value={selected.location_city || "—"} />
               <Detail label="State" value={selected.location_state || "—"} />
               <Detail label="Type" value={selected.type || "—"} />

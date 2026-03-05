@@ -1,3 +1,5 @@
+import * as dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 // /scripts/scrape-reddit.ts
 // Scrape-only: fetches posts from r/TravelNursing via top posts AND search queries.
 // No Gemini calls — classification is handled separately by classify-kb.ts.

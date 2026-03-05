@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Briefcase, ArrowRight } from "lucide-react";
+import Navbar from "@/components/ui/Navbar";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PublicJobFilters, MobileFilterToggle } from "@/components/jobs/PublicJobFilters";
 import { JobCard } from "@/components/jobs/JobCard";
@@ -35,36 +36,7 @@ export function JobBoardClient({
 
   return (
     <div className="min-h-screen bg-brand-warm selection:bg-brand-orange selection:text-white">
-      {/* Header */}
-      <header className="border-b-2 border-brand-charcoal bg-white">
-        <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between px-6 lg:px-12">
-          <Link href="/" className="text-2xl font-extrabold tracking-tight text-brand-orange">
-            RNTELL.
-          </Link>
-          <nav className="flex items-center gap-8">
-            <Link href="/jobs" className="text-sm font-bold uppercase tracking-widest text-brand-charcoal hover:text-brand-orange">
-              Find Jobs
-            </Link>
-            <Link href="/analyze" className="text-sm font-bold uppercase tracking-widest text-brand-charcoal/60 hover:text-brand-charcoal">
-              Analyze
-            </Link>
-            {isLoggedIn ? (
-              <Link href="/dashboard" className="bg-brand-charcoal px-6 py-2 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-orange">
-                Dashboard
-              </Link>
-            ) : (
-              <div className="flex items-center gap-4 border-l-2 border-brand-charcoal/10 pl-8">
-                <Link href="/login" className="text-sm font-bold uppercase tracking-widest text-brand-charcoal hover:text-brand-orange">
-                  Sign In
-                </Link>
-                <Link href="/signup" className="bg-brand-orange px-6 py-2 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-charcoal">
-                  Start
-                </Link>
-              </div>
-            )}
-          </nav>
-        </div>
-      </header>
+      <Navbar />
 
       <div className="mx-auto max-w-[1600px] px-6 py-16 lg:px-12">
         {/* Page title */}

@@ -1,11 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
 
   return (
     <nav className="sticky top-0 z-50 border-b border-brand-charcoal/5 bg-white/80 backdrop-blur-md">
@@ -39,18 +48,29 @@ export default function Navbar() {
             Analyze
           </Link>
           <div className="flex items-center gap-4 border-l border-brand-charcoal/10 pl-8">
-            <Link
-              href="/login"
-              className="text-xs font-bold uppercase tracking-widest text-brand-charcoal hover:text-brand-orange transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/signup"
-              className="rounded-lg bg-brand-orange px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-orange-hover shadow-sm"
-            >
-              Get Started
-            </Link>
+            {isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                className="rounded-lg bg-brand-orange px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-orange-hover shadow-sm"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-xs font-bold uppercase tracking-widest text-brand-charcoal hover:text-brand-orange transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="rounded-lg bg-brand-orange px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-orange-hover shadow-sm"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </div>
 
@@ -90,20 +110,32 @@ export default function Navbar() {
               Analyze an Offer
             </Link>
             <hr className="border-brand-charcoal/5" />
-            <Link
-              href="/login"
-              onClick={() => setOpen(false)}
-              className="text-sm font-semibold text-brand-charcoal hover:text-brand-orange transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/signup"
-              onClick={() => setOpen(false)}
-              className="rounded-lg bg-brand-orange px-5 py-3 text-center text-sm font-bold text-white transition-colors hover:bg-brand-orange-hover"
-            >
-              Get Started
-            </Link>
+            {isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                onClick={() => setOpen(false)}
+                className="rounded-lg bg-brand-orange px-5 py-3 text-center text-sm font-bold text-white transition-colors hover:bg-brand-orange-hover"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="text-sm font-semibold text-brand-charcoal hover:text-brand-orange transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg bg-brand-orange px-5 py-3 text-center text-sm font-bold text-white transition-colors hover:bg-brand-orange-hover"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

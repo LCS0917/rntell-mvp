@@ -12,6 +12,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import type { PublicFacility } from "@/app/actions/facilities";
+import Navbar from "@/components/ui/Navbar";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
@@ -41,57 +42,7 @@ export function FacilityDirectoryClient({
 
   return (
     <div className="min-h-screen bg-brand-warm">
-      {/* Header */}
-      <header className="border-b border-brand-gray-200 bg-white">
-        <div className="container flex h-14 items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-brand-orange">
-            RNTell
-          </Link>
-          <nav className="flex items-center gap-4">
-            <Link
-              href="/jobs"
-              className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
-            >
-              Find Jobs
-            </Link>
-            <Link
-              href="/facilities"
-              className="text-sm font-medium text-brand-charcoal"
-            >
-              Facilities
-            </Link>
-            <Link
-              href="/analyze"
-              className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
-            >
-              Analyze an Offer
-            </Link>
-            {isLoggedIn ? (
-              <Link
-                href="/dashboard"
-                className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
-              >
-                Dashboard
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-charcoal transition-colors hover:bg-brand-gray-100"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/signup"
-                  className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
-                >
-                  Get Started
-                </Link>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
+      <Navbar />
 
       {/* Page title */}
       <div className="container py-8">

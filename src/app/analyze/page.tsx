@@ -1,7 +1,7 @@
 import { Metadata } from "next";
-import Link from "next/link";
 import AnalyzeClient from "./AnalyzeClient";
 import Footer from "@/components/ui/Footer";
+import Navbar from "@/components/ui/Navbar";
 
 export const metadata: Metadata = {
   title: "Contract Analysis | RNTell",
@@ -12,18 +12,7 @@ export const metadata: Metadata = {
 export default function AnalyzePage() {
   return (
     <div className="min-h-screen bg-brand-warm">
-      {/* Minimal header */}
-      <header className="border-b border-brand-gray-200 bg-white">
-        <div className="container flex h-14 items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-brand-orange">
-            RNTell
-          </Link>
-          <span className="text-sm font-medium text-brand-gray-500">
-            Contract Analysis
-          </span>
-        </div>
-      </header>
-
+      <Navbar />
       <AnalyzeClient />
       <Footer />
     </div>

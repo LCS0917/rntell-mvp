@@ -1,3 +1,5 @@
+import * as dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 // /scripts/classify-kb.ts
 // Reads kb_posts where category IS NULL and classifies them in batches of 25
 // using a single Gemini API call per batch. No posts are ever discarded —

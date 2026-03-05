@@ -1,3 +1,5 @@
+import * as dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 // /scripts/extract-reviews.ts
 // Step 3 of the Reddit pipeline:
 // Takes all kb_posts tagged category='facility_reviews', uses Gemini to extract
