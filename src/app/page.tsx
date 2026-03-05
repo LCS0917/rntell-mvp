@@ -46,15 +46,15 @@ export default async function Home() {
     <div className="min-h-screen bg-brand-warm selection:bg-brand-orange selection:text-white font-sans overflow-x-hidden">
       <Navbar />
 
-      <main className="mx-auto max-w-[1400px] px-6 py-12 md:px-12 md:py-24 lg:px-24">
+      <main className="mx-auto max-w-[1400px] px-6 py-12 md:px-12 lg:px-24">
         
         {/* ── HERO SECTION: Refined editorial, non-boxed, quieter typography ── */}
-        <section className="mb-24 animate-reveal">
+        <section className="mb-20 animate-reveal pt-8 md:pt-12">
           <div className="max-w-4xl">
             <div className="mb-6 flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-widest text-brand-orange">
               <Sparkles size={14} /> Financial Intelligence for Nurses
             </div>
-            <h1 className="text-[clamp(3rem,8vw,7rem)] font-bold leading-[0.95] tracking-tighter text-brand-charcoal">
+            <h1 className="text-[clamp(3rem,8vw,6.5rem)] font-bold leading-[0.95] tracking-tighter text-brand-charcoal">
               The <span className="text-brand-orange">Financial Decision Engine</span> for Travel Nurses.
             </h1>
             <p className="mt-8 max-w-2xl text-[clamp(1.125rem,2vw,1.5rem)] font-medium leading-relaxed text-brand-charcoal/70">
@@ -69,7 +69,7 @@ export default async function Home() {
               </CTAButton>
             </div>
           </div>
-          <div className="mt-20 border-t border-brand-charcoal/5 pt-10">
+          <div className="mt-16 border-t border-brand-charcoal/5 pt-8">
             <TrustSignals />
           </div>
         </section>

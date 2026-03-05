@@ -43,10 +43,10 @@ export default function AboutPage() {
     <div className="min-h-screen bg-brand-warm selection:bg-brand-orange selection:text-white font-sans overflow-x-hidden">
       <Navbar />
 
-      <main className="mx-auto max-w-[1400px] px-6 py-12 md:px-12 md:py-24 lg:px-24">
+      <main className="mx-auto max-w-[1400px] px-6 py-12 md:px-12 lg:px-24">
         
         {/* ── HERO / MISSION SECTION: Editorial, non-boxed, quieter typography ── */}
-        <section className="mb-24 animate-reveal">
+        <section className="mb-20 animate-reveal pt-8 md:pt-12">
           <div className="max-w-4xl">
             <div className="mb-6 inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-widest text-brand-orange">
               <Sparkles size={14} /> Our Mission
@@ -55,7 +55,7 @@ export default function AboutPage() {
               Financial <span className="text-brand-orange">Clarity</span> <br className="hidden md:block"/>
               for Every Travel Nurse.
             </h1>
-            <p className="mt-10 max-w-2xl text-[clamp(1.125rem,2vw,1.25rem)] font-medium leading-relaxed text-brand-charcoal/70">
+            <p className="mt-8 max-w-2xl text-[clamp(1.125rem,2vw,1.25rem)] font-medium leading-relaxed text-brand-charcoal/70">
               RNTell is the financial intelligence layer that eliminates pay confusion. We give nurses direct access to market data, contract analysis, and federal incentive detection — without middlemen taking a cut.
             </p>
           </div>
