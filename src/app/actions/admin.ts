@@ -894,3 +894,68 @@ export async function triggerScraper(
 
   return resp.json();
 }
+
+// ---------------------------------------------------------------------------
+// COMMUNITY REVIEWS (Reddit → facility matching)
+// ---------------------------------------------------------------------------
+
+export type CommunityReview = {
+  id: string;
+  kb_post_id: string;
+  facility_name_extracted: string;
+  facility_id: string | null;
+  review_text: string;
+  post_title: string;
+  score: number;
+  reddit_url: string | null;
+  subreddit: string | null;
+  posted_at: string | null;
+  created_at: string;
+};
+
+/** Get all community reviews, optionally filtered */
+export async function getCommunityReviews(filter?: "unmatched" | "matched" | "all") {
+  await requireAdmin();
+  const db = createAdminClient();
+
+  let query = db
+    .from("community_reviews")
+    .select("*")
+    .order("score", { ascending: false });
+
+  if (filter === "unmatched") {
+    query = query.is("facility_id", null);
+  } else if (filter === "matched") {
+    query = query.not("facility_id", "is", null);
+  }
+
+  const { data, error } = await query.limit(200);
+  if (error) throw error;
+  return (data ?? []) as CommunityReview[];
+}
+
+/** Match a community review to a facility */
+export async function matchCommunityReview(reviewId: string, facilityId: string) {
+  await requireAdmin();
+  const db = createAdminClient();
+
+  const { error } = await db
+    .from("community_reviews")
+    .update({ facility_id: facilityId })
+    .eq("id", reviewId);
+  if (error) throw error;
+  return { success: true };
+}
+
+/** Delete a community review */
+export async function deleteCommunityReview(reviewId: string) {
+  await requireAdmin();
+  const db = createAdminClient();
+
+  const { error } = await db
+    .from("community_reviews")
+    .delete()
+    .eq("id", reviewId);
+  if (error) throw error;
+  return { success: true };
+}

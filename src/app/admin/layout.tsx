@@ -13,6 +13,7 @@ import {
   DollarSign,
   Settings,
   Bot,
+  MessageSquare,
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/admin/nurses", label: "Nurses", icon: Users, comingSoon: false },
   { href: "/admin/facilities", label: "Facilities", icon: Building2, comingSoon: false },
   { href: "/admin/jobs", label: "Job Listings", icon: Briefcase, comingSoon: false },
+  { href: "/admin/reviews", label: "Community Reviews", icon: MessageSquare, comingSoon: false },
   { href: "/admin/scraper", label: "Scraper", icon: Bot, comingSoon: false },
   { href: "/admin/rentals", label: "Rental Listings", icon: Home, comingSoon: true },
   { href: "/admin/analyses", label: "Analyses", icon: FileSearch, comingSoon: false },
