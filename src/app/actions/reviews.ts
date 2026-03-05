@@ -67,7 +67,7 @@ export type NegotiationLever = {
 export async function getFacilityWithReviews(facilityId: string) {
   const supabase = await createClient();
 
-  const [facilityResult, reviewsResult, salaryResult, leversResult] =
+  const [facilityResult, reviewsResult, salaryResult, communityReviewsResult, leversResult] =
     await Promise.all([
       supabase
         .from("facilities")
@@ -97,6 +97,7 @@ export async function getFacilityWithReviews(facilityId: string) {
       error: facilityResult.error.message,
       facility: null,
       reviews: [],
+      communityReviews: [],
       aggregate: null,
       reviewCount: 0,
       salaryAggregate: null,
@@ -143,9 +144,12 @@ export async function getFacilityWithReviews(facilityId: string) {
 
   const levers = (leversResult.data ?? []) as NegotiationLever[];
 
+  const communityReviews = communityReviewsResult.data ?? [];
+
   return {
     facility: facilityResult.data,
     reviews,
+    communityReviews,
     aggregate,
     reviewCount: count,
     salaryAggregate,

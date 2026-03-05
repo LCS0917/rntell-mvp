@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getFacilityWithReviews } from "@/app/actions/reviews";
 import type { NegotiationLever } from "@/app/actions/reviews";
 import { notFound } from "next/navigation";
+import { ExternalLink } from "lucide-react";
 import {
   MapPin,
   Building2,
@@ -33,6 +34,7 @@ export default async function FacilityDetailPage({ params }: Props) {
   const {
     facility,
     reviews,
+    communityReviews,
     aggregate,
     reviewCount,
     salaryAggregate,
@@ -297,6 +299,32 @@ export default async function FacilityDetailPage({ params }: Props) {
                 {review.rating_pay && (
                   <span>Pay: {review.rating_pay}/5</span>
                 )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    {/* Community Reviews from Reddit */}
+      {communityReviews.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-brand-charcoal">
+            From the Community
+          </h2>
+          {communityReviews.map((cr) => (
+            <div key={cr.id} className="rounded-xl border border-brand-gray-200 bg-white p-5">
+              <div className="flex items-start justify-between gap-4">
+                <p className="font-medium text-brand-charcoal">{cr.post_title}</p>
+                {cr.reddit_url && (
+                  <a href={cr.reddit_url} target="_blank" rel="noopener noreferrer"
+                    className="shrink-0 flex items-center gap-1 text-xs text-brand-orange hover:underline">
+                    <ExternalLink size={12} /> Reddit
+                  </a>
+                )}
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-brand-gray-500 line-clamp-4">{cr.review_text}</p>
+              <div className="mt-3 flex items-center gap-3 text-xs text-brand-gray-400">
+                {cr.score > 0 && <span>▲ {cr.score} upvotes</span>}
+                {cr.posted_at && <span>{new Date(cr.posted_at).toLocaleDateString()}</span>}
               </div>
             </div>
           ))}
