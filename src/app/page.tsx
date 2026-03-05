@@ -53,9 +53,6 @@ export default async function Home() {
           
           {/* ── HERO CARD (Spans full width) ── */}
           <div className="group animate-reveal relative overflow-hidden rounded-[2rem] border-2 border-brand-charcoal bg-white p-10 transition-transform duration-500 hover:-translate-y-1 hover:shadow-[0_20px_0_0_oklch(0.20_0.02_40)] md:p-16 lg:col-span-12 lg:p-24">
-            {/* Subtle decorative mesh/blob in the background for warmth */}
-            <div className="absolute -right-20 -top-20 z-0 h-[600px] w-[600px] rounded-full bg-brand-peach-200/40 blur-[80px] transition-transform duration-700 group-hover:scale-110" />
-            
             <div className="relative z-10 grid gap-12 lg:grid-cols-12 lg:gap-8">
               <div className="lg:col-span-7">
                 <h1 className="text-[clamp(3.5rem,8vw,7.5rem)] font-extrabold leading-[0.85] tracking-tighter text-brand-charcoal">
