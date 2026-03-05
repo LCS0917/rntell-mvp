@@ -29,7 +29,7 @@ interface PlaceResult {
 }
 
 interface PopulateBody {
-  city: string;
+  city?: string;
   state: string;
   max_results?: number;
 }
@@ -127,9 +127,9 @@ export async function POST(request: NextRequest) {
   const body = (await request.json()) as PopulateBody;
   const { city, state, max_results } = body;
 
-  if (!city || !state || state.length !== 2) {
+  if (!state || state.length !== 2) {
     return NextResponse.json(
-      { error: "city (string) and state (2-letter code) required" },
+      { error: "state (2-letter code) required" },
       { status: 400 }
     );
   }
@@ -142,7 +142,8 @@ export async function POST(request: NextRequest) {
   let nextPageToken: string | undefined;
 
   // Search for hospitals — paginate with required 2s sleep between pages
-  const hospitalQuery = `hospitals in ${city}, ${stateUpper}`;
+  const location = city ? `${city}, ${stateUpper}` : stateUpper;
+  const hospitalQuery = `hospitals in ${location}`;
 
   do {
     if (nextPageToken) {
@@ -158,7 +159,7 @@ export async function POST(request: NextRequest) {
 
   // Also search for clinics/medical centers if we haven't hit the limit
   if (allPlaces.length < limit) {
-    const clinicQuery = `medical centers and clinics in ${city}, ${stateUpper}`;
+    const clinicQuery = `medical centers and clinics in ${location}`;
     nextPageToken = undefined;
 
     do {

@@ -97,8 +97,8 @@ export default function FacilitiesClient({
   const [popError, setPopError] = useState<string | null>(null);
 
   async function handlePopulate() {
-    if (!popCity || !popState || popState.length !== 2) {
-      setPopError("Enter a city and 2-letter state code.");
+    if (!popState || popState.length !== 2) {
+      setPopError("Enter a 2-letter state code.");
       return;
     }
     setPopLoading(true);
@@ -109,7 +109,7 @@ export default function FacilitiesClient({
       const res = await fetch("/api/admin/populate-facilities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ city: popCity, state: popState, max_results: maxNum }),
+        body: JSON.stringify({ ...(popCity && { city: popCity }), state: popState, max_results: maxNum }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -267,16 +267,16 @@ export default function FacilitiesClient({
         {showPopulate && (
           <div className="border-t border-brand-gray-200 px-4 py-4">
             <p className="mb-3 text-xs text-brand-gray-500">
-              Search Google Maps for hospitals &amp; clinics in a city. New facilities are added with data_source=&quot;scraped&quot;, is_claimed=false.
+              Search Google Maps for hospitals &amp; clinics by state (or optionally narrow to a city). New facilities are added with data_source=&quot;scraped&quot;, is_claimed=false.
             </p>
             <div className="flex items-end gap-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-brand-gray-500">City</label>
+                <label className="mb-1 block text-xs font-medium text-brand-gray-500">City (optional)</label>
                 <input
                   type="text"
                   value={popCity}
                   onChange={(e) => setPopCity(e.target.value)}
-                  placeholder="e.g. Houston"
+                  placeholder="Leave blank for whole state"
                   className="w-48 rounded-lg border border-brand-gray-200 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
                 />
               </div>
