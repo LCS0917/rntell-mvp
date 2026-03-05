@@ -1,0 +1,13 @@
+Impeccable — Design fluency for AI harnesses
+https://impeccable.style
+
+This folder contains skills for all supported tools:
+
+  .cursor/    → Cursor
+  .claude/    → Claude Code
+  .gemini/    → Gemini CLI
+  .codex/     → Codex CLI
+  .agents/    → VS Code Copilot, Antigravity
+
+To install, copy the relevant folder(s) into your project root.
+These are hidden folders (dotfiles) — press Cmd+Shift+. in Finder to see them.

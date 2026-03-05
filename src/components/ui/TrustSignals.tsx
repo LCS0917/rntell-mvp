@@ -9,13 +9,13 @@ const signals = [
 
 export default function TrustSignals() {
   return (
-    <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+    <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
       {signals.map((s) => (
         <div
           key={s.label}
-          className="flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm font-medium text-brand-charcoal shadow-sm"
+          className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-widest text-brand-charcoal/40 transition-colors hover:text-brand-charcoal"
         >
-          <s.icon className="h-4 w-4 text-brand-orange" />
+          <s.icon className="h-4 w-4 text-brand-orange/60" />
           {s.label}
         </div>
       ))}
