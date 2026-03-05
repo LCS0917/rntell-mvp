@@ -4,21 +4,27 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 flex h-20 items-center justify-between border-b border-brand-charcoal/5 bg-white/80 px-6 backdrop-blur-md lg:px-12">
       {/* Logo */}
-      <Link href="/" className="text-2xl font-black tracking-tighter text-brand-charcoal hover:text-brand-orange transition-colors">
-        RNTELL.
+      <Link href="/" className="text-2xl font-black tracking-tighter text-brand-orange hover:text-brand-orange-hover transition-colors">
+        RNTell
       </Link>
 
       {/* Nav links + actions */}
       <div className="flex items-center gap-8">
         <Link
           href="/jobs"
-          className="hidden text-xs font-bold uppercase tracking-widest text-brand-charcoal/60 hover:text-brand-charcoal transition-colors md:block"
+          className="text-xs font-bold uppercase tracking-widest text-brand-charcoal hover:text-brand-orange transition-colors"
         >
           Find Jobs
         </Link>
         <Link
+          href="/facilities"
+          className="text-xs font-bold uppercase tracking-widest text-brand-charcoal hover:text-brand-orange transition-colors"
+        >
+          Facilities
+        </Link>
+        <Link
           href="/analyze"
-          className="hidden text-xs font-bold uppercase tracking-widest text-brand-charcoal/60 hover:text-brand-charcoal transition-colors md:block"
+          className="text-xs font-bold uppercase tracking-widest text-brand-charcoal hover:text-brand-orange transition-colors"
         >
           Analyze
         </Link>

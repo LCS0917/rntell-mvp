@@ -6,12 +6,12 @@
    =========================================================================== */
 
 @theme inline {
-  /* --- Brand Orange/Peach (Primary Hue ~40) --- */
-  --color-brand-peach-50:  oklch(0.96 0.03 40);
-  --color-brand-peach-100: oklch(0.92 0.06 40);
-  --color-brand-peach-200: oklch(0.85 0.12 40);
-  --color-brand-peach-300: oklch(0.78 0.16 40);
-  --color-brand-peach-400: oklch(0.72 0.19 40);
+  /* --- Brand Orange/Peach (Original hex values) --- */
+  --color-brand-peach-50:  #FFE5E5;
+  --color-brand-peach-100: #FFB8A0;
+  --color-brand-peach-200: #FF9F7F;
+  --color-brand-peach-300: #FF8A66;
+  --color-brand-peach-400: #FF754D;
 
   /* --- Brand Mint (Trust / Safety - Hue ~140) --- */
   --color-brand-mint-50:  oklch(0.96 0.02 140);
@@ -20,9 +20,9 @@
   --color-brand-mint-300: oklch(0.78 0.15 140);
 
   /* --- CTA / Action Colors --- */
-  --color-brand-orange:       oklch(0.65 0.22 40);
-  --color-brand-orange-hover: oklch(0.60 0.24 40);
-  --color-brand-orange-light: oklch(0.75 0.18 40);
+  --color-brand-orange:       #FF7043;
+  --color-brand-orange-hover: #F4511E;
+  --color-brand-orange-light: #FF8A65;
 
   /* --- Success / Verified --- */
   --color-brand-success:       oklch(0.70 0.18 140);

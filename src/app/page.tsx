@@ -50,27 +50,23 @@ export default async function Home() {
         
         {/* ── HERO SECTION: Refined editorial, non-boxed, quieter typography ── */}
         <section className="mb-24 animate-reveal">
-          <div className="flex flex-col gap-12 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-4xl">
-              <div className="mb-6 flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-widest text-brand-orange">
-                <Sparkles size={14} /> Financial Intelligence for Nurses
-              </div>
-              <h1 className="text-[clamp(3rem,8vw,7rem)] font-bold leading-[0.95] tracking-tighter text-brand-charcoal">
-                The <span className="text-brand-orange">Financial Decision Engine</span> for Travel Nurses.
-              </h1>
+          <div className="max-w-4xl">
+            <div className="mb-6 flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-widest text-brand-orange">
+              <Sparkles size={14} /> Financial Intelligence for Nurses
             </div>
-            <div className="max-w-md lg:pb-4">
-              <p className="text-[clamp(1.125rem,2vw,1.25rem)] font-medium leading-relaxed text-brand-charcoal/70">
-                {cms(sections, "hero", "subheadline", "Analyze any contract. See your real take-home. Detect margin risk before you sign.")}
-              </p>
-              <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row">
-                <CTAButton href="/analyze">
-                  {cms(sections, "hero", "cta_primary", "Analyze My Offer")}
-                </CTAButton>
-                <CTAButton href="/jobs" variant="outline">
-                  {cms(sections, "hero", "cta_secondary", "Find Jobs")}
-                </CTAButton>
-              </div>
+            <h1 className="text-[clamp(3rem,8vw,7rem)] font-bold leading-[0.95] tracking-tighter text-brand-charcoal">
+              The <span className="text-brand-orange">Financial Decision Engine</span> for Travel Nurses.
+            </h1>
+            <p className="mt-8 max-w-2xl text-[clamp(1.125rem,2vw,1.5rem)] font-medium leading-relaxed text-brand-charcoal/70">
+              {cms(sections, "hero", "subheadline", "Analyze any contract. See your real take-home. Detect margin risk before you sign.")}
+            </p>
+            <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row">
+              <CTAButton href="/analyze">
+                {cms(sections, "hero", "cta_primary", "Analyze My Offer")}
+              </CTAButton>
+              <CTAButton href="/jobs" variant="outline">
+                {cms(sections, "hero", "cta_secondary", "Find Jobs")}
+              </CTAButton>
             </div>
           </div>
           <div className="mt-20 border-t border-brand-charcoal/5 pt-10">
