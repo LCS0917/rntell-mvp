@@ -17,6 +17,11 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/facilities" className="text-sm text-footer-text hover:text-white">
+                  Facilities
+                </Link>
+              </li>
+              <li>
                 <Link href="/analyze" className="text-sm text-footer-text hover:text-white">
                   Analyze an Offer
                 </Link>

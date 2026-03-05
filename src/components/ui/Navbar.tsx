@@ -17,6 +17,12 @@ export default function Navbar() {
           Find Jobs
         </Link>
         <Link
+          href="/facilities"
+          className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
+        >
+          Facilities
+        </Link>
+        <Link
           href="/analyze"
           className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
         >
