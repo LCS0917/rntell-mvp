@@ -51,7 +51,7 @@ function RatingSlider({
   );
 }
 
-export function ReviewForm({ facilityId }: { facilityId: string }) {
+export function ReviewForm({ facilityId, isLoggedIn }: { facilityId: string; isLoggedIn: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -100,6 +100,15 @@ export function ReviewForm({ facilityId }: { facilityId: string }) {
         router.refresh();
       }
     });
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="rounded-xl border-2 border-dashed border-brand-gray-200 bg-white py-6 text-center">
+        <p className="text-sm text-brand-gray-500">Want to leave a review?</p>
+        <a href="/login" className="mt-2 inline-block text-sm font-medium text-brand-orange hover:underline">Sign in to write a review</a>
+      </div>
+    );
   }
 
   if (!open) {
