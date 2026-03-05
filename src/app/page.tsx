@@ -73,16 +73,16 @@ export default async function Home() {
               </div>
             </div>
           </div>
-          <div className="mt-20 border-t-2 border-brand-charcoal/5 pt-10">
+          <div className="mt-20 border-t border-brand-charcoal/5 pt-10">
             <TrustSignals />
           </div>
         </section>
 
-        {/* ── BENTO GRID SECTION: Bento starts here for the features ── */}
+        {/* ── BENTO GRID SECTION: Flat, clean shapes ── */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-12 lg:gap-8">
           
           {/* ── VALUE PROPOSITION HEADER (Spans full width) ── */}
-          <div className="animate-reveal flex flex-col justify-center rounded-[2rem] border-2 border-brand-charcoal bg-brand-charcoal p-10 text-brand-warm transition-transform duration-500 hover:-translate-y-1 hover:shadow-[0_8px_0_0_oklch(0.65_0.22_40)] md:p-16 lg:col-span-12" style={{ animationDelay: '150ms' }}>
+          <div className="animate-reveal flex flex-col justify-center rounded-[2rem] bg-brand-charcoal p-10 text-brand-warm transition-transform duration-500 hover:-translate-y-1 hover:shadow-xl md:p-16 lg:col-span-12" style={{ animationDelay: '150ms' }}>
             <h2 className="max-w-4xl text-[clamp(2.5rem,5vw,4rem)] font-bold leading-[0.9] tracking-tighter">
               <span className="text-brand-orange">Know More.</span> Earn More. Own Your Career.
             </h2>
@@ -111,7 +111,7 @@ export default async function Home() {
           ].map((prop, idx) => (
             <div 
               key={idx} 
-              className={`group relative overflow-hidden rounded-[2rem] border-2 border-brand-charcoal bg-white p-10 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_0_0_oklch(0.20_0.02_40)] lg:col-span-4 ${prop.colorClass}`}
+              className={`group relative overflow-hidden rounded-[2rem] bg-white p-10 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl lg:col-span-4 ${prop.colorClass}`}
               style={{ animationDelay: `${(idx + 2) * 150}ms` }}
             >
               {/* Decorative oversized background number */}
@@ -134,8 +134,8 @@ export default async function Home() {
           ))}
 
           {/* ── HOW IT WORKS CARD (Spans full width) ── */}
-          <div className="group animate-reveal relative rounded-[2rem] border-2 border-brand-charcoal bg-brand-mint-50 p-10 transition-transform duration-500 hover:-translate-y-1 hover:shadow-[0_8px_0_0_oklch(0.20_0.02_40)] md:p-16 lg:col-span-12" style={{ animationDelay: '600ms' }}>
-            <div className="mb-12 flex items-center justify-between border-b-2 border-brand-charcoal/10 pb-8">
+          <div className="group animate-reveal relative rounded-[2rem] bg-brand-mint-50 p-10 transition-transform duration-500 hover:-translate-y-1 hover:shadow-xl md:p-16 lg:col-span-12" style={{ animationDelay: '600ms' }}>
+            <div className="mb-12 flex items-center justify-between border-b border-brand-charcoal/5 pb-8">
               <h2 className="text-[clamp(2rem,4vw,3.5rem)] font-bold leading-none tracking-tighter text-brand-charcoal">
                 How It Works <Zap className="inline-block text-brand-orange" size={40} fill="currentColor" />
               </h2>
@@ -157,7 +157,7 @@ export default async function Home() {
                 }
               ].map((step, idx) => (
                 <div key={idx} className="group/step relative transition-transform duration-300">
-                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-brand-charcoal bg-white font-mono text-xl font-bold text-brand-charcoal shadow-[4px_4px_0_0_oklch(0.20_0.02_40)] transition-transform duration-300 group-hover/step:-rotate-3 group-hover/step:scale-105">
+                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white font-mono text-xl font-bold text-brand-charcoal shadow-sm transition-transform duration-300 group-hover/step:-rotate-3 group-hover/step:scale-105">
                     {idx + 1}
                   </div>
                   <h3 className="mb-3 text-2xl font-bold tracking-tight text-brand-charcoal transition-colors duration-300 group-hover/step:text-brand-success-dark">{step.title}</h3>
@@ -169,8 +169,8 @@ export default async function Home() {
 
           {/* ── FEATURED JOBS (Spans full width) ── */}
           {featuredJobs.length > 0 && (
-            <div className="group animate-reveal relative rounded-[2rem] border-2 border-brand-charcoal bg-white p-10 transition-transform duration-500 hover:-translate-y-1 hover:shadow-[0_8px_0_0_oklch(0.20_0.02_40)] md:p-16 lg:col-span-12" style={{ animationDelay: '750ms' }}>
-              <div className="mb-12 flex flex-col items-start justify-between gap-6 border-b-2 border-brand-charcoal/10 pb-8 md:flex-row md:items-end">
+            <div className="group animate-reveal relative rounded-[2rem] bg-white p-10 transition-transform duration-500 hover:-translate-y-1 hover:shadow-xl md:p-16 lg:col-span-12" style={{ animationDelay: '750ms' }}>
+              <div className="mb-12 flex flex-col items-start justify-between gap-6 border-b border-brand-charcoal/5 pb-8 md:flex-row md:items-end">
                 <div>
                   <h2 className="text-[clamp(2rem,4vw,3.5rem)] font-bold leading-[0.9] tracking-tighter text-brand-charcoal">
                     {cms(sections, "featured_jobs", "headline", "Featured Assignments")}
@@ -193,7 +193,7 @@ export default async function Home() {
                     <Link 
                       key={job.id} 
                       href={`/jobs/${job.id}`}
-                      className={`group/job flex flex-col items-start justify-between gap-6 py-8 transition-colors hover:bg-brand-warm/30 md:flex-row md:items-center ${index !== featuredJobs.length - 1 ? 'border-b-2 border-brand-charcoal/5' : ''}`}
+                      className={`group/job flex flex-col items-start justify-between gap-6 py-8 transition-colors hover:bg-brand-warm/50 md:flex-row md:items-center ${index !== featuredJobs.length - 1 ? 'border-b border-brand-charcoal/5' : ''}`}
                     >
                       <div className="flex-1">
                         <p className="mb-2 font-mono text-sm font-bold tracking-widest text-brand-orange uppercase">
@@ -219,7 +219,7 @@ export default async function Home() {
                           </p>
                           <p className="mt-1 font-mono text-[10px] font-bold tracking-widest text-brand-charcoal/30 uppercase">Per Week</p>
                         </div>
-                        <div className="hidden h-12 w-12 items-center justify-center rounded-2xl border-2 border-brand-charcoal bg-white font-bold text-brand-charcoal shadow-[3px_3px_0_0_oklch(0.20_0.02_40)] transition-transform duration-300 group-hover/job:-rotate-6 group-hover/job:scale-105 md:flex">
+                        <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-white font-bold text-brand-charcoal shadow-sm ring-1 ring-inset ring-brand-charcoal/5 transition-transform duration-300 group-hover/job:-rotate-6 group-hover/job:scale-105 md:flex">
                           <ArrowRight size={20} />
                         </div>
                       </div>

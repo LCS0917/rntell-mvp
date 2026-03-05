@@ -14,12 +14,12 @@ export default function CTAButton({
   children: React.ReactNode;
 }) {
   const base =
-    "group/btn inline-flex items-center justify-center gap-2 rounded-xl border-2 px-8 py-4 text-sm font-bold uppercase tracking-widest transition-all hover:-translate-y-0.5 active:translate-y-0";
+    "group/btn inline-flex items-center justify-center gap-2 rounded-xl px-8 py-4 text-sm font-bold uppercase tracking-widest transition-all hover:-translate-y-0.5 active:translate-y-0";
   
   const variants: Record<Variant, string> = {
-    solid: "border-brand-charcoal bg-brand-orange text-white hover:bg-brand-orange-hover shadow-[4px_4px_0_0_oklch(0.20_0.02_40)] hover:shadow-[6px_6px_0_0_oklch(0.20_0.02_40)]",
+    solid: "bg-brand-orange text-white hover:bg-brand-orange-hover shadow-sm hover:shadow-md",
     outline:
-      "border-brand-charcoal bg-white text-brand-charcoal hover:bg-brand-gray-100 shadow-[4px_4px_0_0_oklch(0.20_0.02_40)] hover:shadow-[6px_6px_0_0_oklch(0.20_0.02_40)]",
+      "bg-white text-brand-charcoal hover:bg-brand-gray-50 shadow-sm hover:shadow-md ring-1 ring-inset ring-brand-charcoal/10",
   };
 
   return (

@@ -68,11 +68,11 @@ export default function AboutPage() {
           {problems.map((p, i) => (
             <div 
               key={p.title}
-              className={`group animate-reveal relative flex flex-col justify-between overflow-hidden rounded-3xl border-2 border-brand-charcoal bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_0_0_oklch(0.20_0.02_40)]`}
+              className={`group animate-reveal relative flex flex-col justify-between overflow-hidden rounded-[2rem] bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl`}
               style={{ animationDelay: `${(i + 1) * 150}ms` }}
             >
               <div>
-                <div className={`mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-brand-charcoal ${p.color} shadow-[3px_3px_0_0_oklch(0.20_0.02_40)] transition-transform duration-300 group-hover:rotate-3 group-hover:scale-105`}>
+                <div className={`mb-6 flex h-14 w-14 items-center justify-center rounded-2xl ${p.color} shadow-sm transition-transform duration-300 group-hover:rotate-3 group-hover:scale-105`}>
                   <p.icon className="h-6 w-6" />
                 </div>
                 <h3 className="mb-4 text-2xl font-bold tracking-tight text-brand-charcoal">
@@ -86,8 +86,8 @@ export default function AboutPage() {
           ))}
 
           {/* ── HOW IT WORKS CARD (Spans 4 cols) ── */}
-          <div className="group animate-reveal lg:col-span-4 relative rounded-[2rem] border-2 border-brand-charcoal bg-brand-mint-50 p-10 md:p-16 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_12px_0_0_oklch(0.20_0.02_40)]" style={{ animationDelay: '600ms' }}>
-            <div className="mb-12 flex items-center justify-between border-b-2 border-brand-charcoal/10 pb-8">
+          <div className="group animate-reveal lg:col-span-4 relative rounded-[2rem] bg-brand-mint-50 p-10 md:p-16 transition-all duration-500 hover:-translate-y-1 hover:shadow-xl" style={{ animationDelay: '600ms' }}>
+            <div className="mb-12 flex items-center justify-between border-b border-brand-charcoal/5 pb-8">
               <h2 className="text-[clamp(2rem,4vw,3.5rem)] font-bold leading-none tracking-tighter text-brand-charcoal">
                 How It Works <Zap className="inline-block text-brand-orange" size={40} fill="currentColor" />
               </h2>
@@ -96,12 +96,12 @@ export default function AboutPage() {
           </div>
 
           {/* ── WHAT'S NEXT (Roadmap Cards) ── */}
-          <div className="group animate-reveal lg:col-span-2 flex flex-col justify-between rounded-[2rem] border-2 border-brand-charcoal bg-[#E0E7FF] p-10 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_12px_0_0_oklch(0.20_0.02_40)]" style={{ animationDelay: '750ms' }}>
+          <div className="group animate-reveal lg:col-span-2 flex flex-col justify-between rounded-[2rem] bg-[#E0E7FF] p-10 transition-all duration-500 hover:-translate-y-1 hover:shadow-xl" style={{ animationDelay: '750ms' }}>
             <div>
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-brand-charcoal bg-white shadow-[3px_3px_0_0_oklch(0.20_0.02_40)] transition-transform duration-500 group-hover:-rotate-2 group-hover:scale-105">
+              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm transition-transform duration-500 group-hover:-rotate-2 group-hover:scale-105">
                 <Home className="h-7 w-7 text-indigo-500" />
               </div>
-              <span className="mb-4 inline-block rounded-full border-2 border-brand-charcoal bg-white px-3 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-brand-charcoal">
+              <span className="mb-4 inline-block rounded-full bg-white px-3 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-brand-charcoal ring-1 ring-inset ring-brand-charcoal/5">
                 Coming Soon
               </span>
               <h3 className="mb-4 text-3xl font-bold tracking-tight text-brand-charcoal">
@@ -113,12 +113,12 @@ export default function AboutPage() {
             </div>
           </div>
 
-          <div className="group animate-reveal lg:col-span-2 flex flex-col justify-between rounded-[2rem] border-2 border-brand-charcoal bg-[#FCE7F3] p-10 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_12px_0_0_oklch(0.20_0.02_40)]" style={{ animationDelay: '900ms' }}>
+          <div className="group animate-reveal lg:col-span-2 flex flex-col justify-between rounded-[2rem] bg-[#FCE7F3] p-10 transition-all duration-500 hover:-translate-y-1 hover:shadow-xl" style={{ animationDelay: '900ms' }}>
             <div>
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-brand-charcoal bg-white shadow-[3px_3px_0_0_oklch(0.20_0.02_40)] transition-transform duration-500 group-hover:-rotate-2 group-hover:scale-105">
+              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm transition-transform duration-500 group-hover:-rotate-2 group-hover:scale-105">
                 <Users className="h-7 w-7 text-pink-500" />
               </div>
-              <span className="mb-4 inline-block rounded-full border-2 border-brand-charcoal bg-white px-3 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-brand-charcoal">
+              <span className="mb-4 inline-block rounded-full bg-white px-3 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-brand-charcoal ring-1 ring-inset ring-brand-charcoal/5">
                 Coming Soon
               </span>
               <h3 className="mb-4 text-3xl font-bold tracking-tight text-brand-charcoal">
@@ -131,7 +131,7 @@ export default function AboutPage() {
           </div>
 
           {/* ── BOTTOM CTA CARD ── */}
-          <div className="group animate-reveal lg:col-span-4 relative overflow-hidden rounded-[2rem] border-2 border-brand-charcoal bg-brand-charcoal p-10 text-center md:p-20 transition-all duration-500 hover:shadow-[0_16px_0_0_oklch(0.65_0.22_40)] hover:border-brand-orange" style={{ animationDelay: '1050ms' }}>
+          <div className="group animate-reveal lg:col-span-4 relative overflow-hidden rounded-[2rem] bg-brand-charcoal p-10 text-center md:p-20 transition-all duration-500 hover:shadow-2xl" style={{ animationDelay: '1050ms' }}>
             <div className="relative z-10 flex flex-col items-center">
               <h2 className="mb-10 text-[clamp(2rem,5vw,4rem)] font-bold leading-tight tracking-tighter text-white">
                 See what your next contract is <span className="text-brand-orange underline decoration-wavy underline-offset-8">really</span> worth.
