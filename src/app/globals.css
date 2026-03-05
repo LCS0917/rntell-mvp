@@ -1,61 +1,60 @@
-/* /src/app/globals.css */
 @import "tailwindcss";
 
 /* ===========================================================================
    RNTell Brand Design Tokens
-   Tailwind v4 CSS-based theme configuration
+   Tailwind v4 CSS-based theme configuration using OKLCH
    =========================================================================== */
 
 @theme inline {
-  /* --- Brand Peach (Gradients / Backgrounds) --- */
-  --color-brand-peach-50:  #FFE5E5;
-  --color-brand-peach-100: #FFB8A0;
-  --color-brand-peach-200: #FF9F7F;
-  --color-brand-peach-300: #FF8A66;
-  --color-brand-peach-400: #FF754D;
+  /* --- Brand Orange/Peach (Primary Hue ~40) --- */
+  --color-brand-peach-50:  oklch(0.96 0.03 40);
+  --color-brand-peach-100: oklch(0.92 0.06 40);
+  --color-brand-peach-200: oklch(0.85 0.12 40);
+  --color-brand-peach-300: oklch(0.78 0.16 40);
+  --color-brand-peach-400: oklch(0.72 0.19 40);
 
-  /* --- Brand Mint (Trust / Safety) --- */
-  --color-brand-mint-50:  #E8F5E9;
-  --color-brand-mint-100: #C8E6C9;
-  --color-brand-mint-200: #A5D6A7;
-  --color-brand-mint-300: #81C784;
+  /* --- Brand Mint (Trust / Safety - Hue ~140) --- */
+  --color-brand-mint-50:  oklch(0.96 0.02 140);
+  --color-brand-mint-100: oklch(0.92 0.05 140);
+  --color-brand-mint-200: oklch(0.85 0.10 140);
+  --color-brand-mint-300: oklch(0.78 0.15 140);
 
   /* --- CTA / Action Colors --- */
-  --color-brand-orange:     #FF7043;
-  --color-brand-orange-hover: #F4511E;
-  --color-brand-orange-light: #FF8A65;
+  --color-brand-orange:       oklch(0.65 0.22 40);
+  --color-brand-orange-hover: oklch(0.60 0.24 40);
+  --color-brand-orange-light: oklch(0.75 0.18 40);
 
   /* --- Success / Verified --- */
-  --color-brand-success:       #66BB6A;
-  --color-brand-success-light: #81C784;
-  --color-brand-success-dark:  #4CAF50;
+  --color-brand-success:       oklch(0.70 0.18 140);
+  --color-brand-success-light: oklch(0.80 0.12 140);
+  --color-brand-success-dark:  oklch(0.55 0.16 140);
 
-  /* --- Neutrals --- */
-  --color-brand-warm:      #FAFAF8;
-  --color-brand-charcoal:  #2C2C2C;
-  --color-brand-gray-100:  #F5F5F4;
-  --color-brand-gray-200:  #E7E5E4;
-  --color-brand-gray-300:  #D6D3D1;
-  --color-brand-gray-400:  #A8A29E;
-  --color-brand-gray-500:  #78716C;
+  /* --- Neutrals (Tinted with primary hue 40) --- */
+  --color-brand-warm:      oklch(0.98 0.01 40);
+  --color-brand-charcoal:  oklch(0.20 0.02 40);
+  --color-brand-gray-100:  oklch(0.95 0.01 40);
+  --color-brand-gray-200:  oklch(0.90 0.02 40);
+  --color-brand-gray-300:  oklch(0.80 0.03 40);
+  --color-brand-gray-400:  oklch(0.65 0.04 40);
+  --color-brand-gray-500:  oklch(0.50 0.05 40);
 
   /* --- Danger / Lowball --- */
-  --color-brand-danger:       #EF4444;
-  --color-brand-danger-light: #FEE2E2;
+  --color-brand-danger:       oklch(0.60 0.25 25);
+  --color-brand-danger-light: oklch(0.95 0.05 25);
 
   /* --- Green (Ratings) --- */
-  --color-brand-green:       #22C55E;
-  --color-brand-green-light: #DCFCE7;
+  --color-brand-green:       oklch(0.65 0.20 140);
+  --color-brand-green-light: oklch(0.95 0.05 140);
 
   /* --- Teal (Financial / Pay figures) --- */
-  --color-brand-teal: #26C6DA;
+  --color-brand-teal: oklch(0.75 0.15 190);
 
   /* --- Amber (Warnings / Medium risk) --- */
-  --color-brand-amber: #FFB300;
+  --color-brand-amber: oklch(0.80 0.20 80);
 
   /* --- Footer --- */
-  --color-footer-bg: #1A1A1A;
-  --color-footer-text: #CCCCCC;
+  --color-footer-bg: oklch(0.15 0.02 40);
+  --color-footer-text: oklch(0.85 0.01 40);
 
   /* --- Semantic aliases --- */
   --color-background: var(--color-brand-warm);
@@ -85,8 +84,8 @@ body {
 @utility container {
   margin-left: auto;
   margin-right: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
+  padding-left: clamp(1rem, 5vw, 3rem);
+  padding-right: clamp(1rem, 5vw, 3rem);
   width: 100%;
-  max-width: 80rem;
+  max-width: 90rem;
 }

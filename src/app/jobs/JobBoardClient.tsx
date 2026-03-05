@@ -34,78 +34,61 @@ export function JobBoardClient({
   }
 
   return (
-    <div className="min-h-screen bg-brand-warm">
+    <div className="min-h-screen bg-brand-warm selection:bg-brand-orange selection:text-white">
       {/* Header */}
-      <header className="border-b border-brand-gray-200 bg-white">
-        <div className="container flex h-14 items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-brand-orange">
-            RNTell
+      <header className="border-b-2 border-brand-charcoal bg-white">
+        <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between px-6 lg:px-12">
+          <Link href="/" className="text-2xl font-extrabold tracking-tight text-brand-orange">
+            RNTELL.
           </Link>
-          <nav className="flex items-center gap-4">
-            <Link
-              href="/jobs"
-              className="text-sm font-medium text-brand-charcoal"
-            >
+          <nav className="flex items-center gap-8">
+            <Link href="/jobs" className="text-sm font-bold uppercase tracking-widest text-brand-charcoal hover:text-brand-orange">
               Find Jobs
             </Link>
-            <Link
-              href="/analyze"
-              className="text-sm font-medium text-brand-gray-500 hover:text-brand-charcoal"
-            >
-              Analyze an Offer
+            <Link href="/analyze" className="text-sm font-bold uppercase tracking-widest text-brand-charcoal/60 hover:text-brand-charcoal">
+              Analyze
             </Link>
             {isLoggedIn ? (
-              <Link
-                href="/dashboard"
-                className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
-              >
+              <Link href="/dashboard" className="bg-brand-charcoal px-6 py-2 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-orange">
                 Dashboard
               </Link>
             ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-charcoal transition-colors hover:bg-brand-gray-100"
-                >
+              <div className="flex items-center gap-4 border-l-2 border-brand-charcoal/10 pl-8">
+                <Link href="/login" className="text-sm font-bold uppercase tracking-widest text-brand-charcoal hover:text-brand-orange">
                   Sign In
                 </Link>
-                <Link
-                  href="/signup"
-                  className="rounded-lg bg-brand-orange px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
-                >
-                  Get Started
+                <Link href="/signup" className="bg-brand-orange px-6 py-2 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-charcoal">
+                  Start
                 </Link>
-              </>
+              </div>
             )}
           </nav>
         </div>
       </header>
 
-      <div className="container py-6">
+      <div className="mx-auto max-w-[1600px] px-6 py-16 lg:px-12">
         {/* Page title */}
-        <div className="mb-6">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-brand-charcoal">
-            <Briefcase className="text-brand-orange" size={28} />
-            Direct-Hire Travel Nursing Jobs
+        <div className="mb-16 max-w-3xl">
+          <h1 className="text-[clamp(2.5rem,5vw,4.5rem)] font-extrabold leading-tight tracking-tight text-brand-charcoal">
+            Direct-Hire Assignments.
           </h1>
-          <p className="mt-1 text-sm text-brand-gray-500">
-            Browse positions posted directly by hospitals. You keep what you
-            earn.
+          <p className="mt-4 text-xl font-medium text-brand-charcoal/60">
+            Browse positions posted directly by hospitals. No agency markup, you keep what you earn.
           </p>
         </div>
 
         {/* Mobile filters */}
-        <div className="mb-4 lg:hidden">
+        <div className="mb-8 lg:hidden">
           <MobileFilterToggle>
             <PublicJobFilters />
           </MobileFilterToggle>
         </div>
 
         {/* Two-column layout */}
-        <div className="flex gap-6">
+        <div className="flex flex-col gap-16 lg:flex-row">
           {/* Left: sticky filter panel (desktop) */}
-          <aside className="hidden w-64 shrink-0 lg:block">
-            <div className="sticky top-6 rounded-xl border border-brand-gray-200 bg-white p-4">
+          <aside className="hidden w-72 shrink-0 lg:block">
+            <div className="sticky top-10 border-t-4 border-brand-charcoal pt-8">
               <PublicJobFilters />
             </div>
           </aside>
@@ -114,18 +97,13 @@ export function JobBoardClient({
           <div className="min-w-0 flex-1">
             {/* Matched section (logged-in nurses with profile) */}
             {isLoggedIn && matchedJobs.length > 0 && (
-              <div className="mb-8">
-                <h2 className="mb-3 text-lg font-semibold text-brand-charcoal">
+              <div className="mb-16 border-t-4 border-brand-orange">
+                <h2 className="bg-brand-orange py-4 pl-6 text-xl font-bold uppercase tracking-widest text-white">
                   Matched for You
                 </h2>
-                <div className="space-y-3">
+                <div className="flex flex-col">
                   {matchedJobs.map((job) => (
-                    <JobCard
-                      key={job.id}
-                      job={job}
-                      isLoggedIn={true}
-                      matchReason={job.match_reasons?.[0]}
-                    />
+                    <JobCard key={job.id} job={job} isLoggedIn={true} matchReason={job.match_reasons?.[0]} />
                   ))}
                 </div>
               </div>
@@ -133,82 +111,60 @@ export function JobBoardClient({
 
             {/* Prompt for nurses without profile data */}
             {isLoggedIn && !hasProfile && matchedJobs.length === 0 && (
-              <div className="mb-6 rounded-xl border border-brand-orange/20 bg-brand-peach-50 p-4">
-                <p className="text-sm text-brand-charcoal">
-                  <span className="font-semibold">
-                    Unlock personalized job matching
-                  </span>{" "}
-                  — analyze your current offer to see which listings are the best
-                  fit.
+              <div className="mb-12 border-l-4 border-brand-orange bg-white p-8 shadow-sm">
+                <h3 className="mb-2 text-xl font-bold text-brand-charcoal">
+                  Unlock personalized matching
+                </h3>
+                <p className="text-brand-charcoal/70">
+                  Analyze your current offer to see which listings are the best financial fit.
                 </p>
-                <Link
-                  href="/analyze"
-                  className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-brand-orange hover:text-brand-orange-hover"
-                >
-                  Analyze your offer <ArrowRight size={14} />
+                <Link href="/analyze" className="mt-6 inline-flex items-center gap-2 font-bold uppercase tracking-widest text-brand-orange transition-colors hover:text-brand-charcoal">
+                  Analyze your offer <ArrowRight size={16} />
                 </Link>
               </div>
             )}
 
             {/* Sort + count bar */}
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm text-brand-gray-500">
-                <span className="font-semibold text-brand-charcoal">
-                  {total}
-                </span>{" "}
-                direct-hire {total === 1 ? "position" : "positions"} available
+            <div className="mb-8 flex items-end justify-between border-b-2 border-brand-charcoal/10 pb-4">
+              <p className="font-mono text-sm font-bold uppercase tracking-widest text-brand-charcoal/60">
+                <span className="text-xl text-brand-charcoal">{total}</span>{" "}
+                {total === 1 ? "position" : "positions"}
               </p>
-              <select
-                value={currentSort}
-                onChange={(e) => handleSortChange(e.target.value)}
-                className="rounded-lg border border-brand-gray-200 px-3 py-1.5 text-sm focus:border-brand-orange focus:ring-1 focus:ring-brand-orange focus:outline-none"
-              >
-                {JOB_SORT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-4">
+                <label htmlFor="sort-select" className="hidden font-mono text-sm font-bold uppercase tracking-widest text-brand-charcoal/60 sm:block">
+                  Sort By
+                </label>
+                <select
+                  id="sort-select"
+                  value={currentSort}
+                  onChange={(e) => handleSortChange(e.target.value)}
+                  className="border-b-2 border-brand-charcoal bg-transparent py-2 pl-0 pr-8 font-mono text-sm font-bold uppercase tracking-wider focus:border-brand-orange focus:outline-none focus:ring-0"
+                >
+                  {JOB_SORT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* All Listings */}
-            {matchedJobs.length > 0 && (
-              <h2 className="mb-3 text-lg font-semibold text-brand-charcoal">
-                All Listings
-              </h2>
-            )}
-
             {jobs.length === 0 ? (
-              <div className="rounded-xl border border-brand-gray-200 bg-white p-12 text-center">
-                <Briefcase
-                  className="mx-auto text-brand-gray-300"
-                  size={48}
-                />
-                <h2 className="mt-4 text-lg font-semibold text-brand-charcoal">
-                  No listings match your filters
-                </h2>
-                <p className="mx-auto mt-2 max-w-sm text-sm text-brand-gray-500">
-                  Try broadening your search or sign up for alerts.
+              <div className="flex flex-col items-center justify-center border-2 border-dashed border-brand-charcoal/20 py-24 text-center">
+                <Briefcase className="mb-6 h-16 w-16 text-brand-charcoal/20" />
+                <h2 className="text-2xl font-bold text-brand-charcoal">No listings match your filters</h2>
+                <p className="mx-auto mt-2 max-w-sm text-brand-charcoal/60">
+                  Try broadening your search or sign up for alerts when matching jobs are posted.
                 </p>
-                <div className="mx-auto mt-6 max-w-md">
+                <div className="mx-auto mt-8 w-full max-w-md">
                   <JobAlertForm />
                 </div>
-                <Link
-                  href="/analyze"
-                  className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-brand-orange hover:text-brand-orange-hover"
-                >
-                  Already have an offer? Analyze it here{" "}
-                  <ArrowRight size={14} />
-                </Link>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="flex flex-col border-t-2 border-brand-charcoal">
                 {jobs.map((job) => (
-                  <JobCard
-                    key={job.id}
-                    job={job}
-                    isLoggedIn={isLoggedIn}
-                  />
+                  <JobCard key={job.id} job={job} isLoggedIn={isLoggedIn} />
                 ))}
               </div>
             )}

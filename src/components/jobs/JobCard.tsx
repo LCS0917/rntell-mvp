@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Clock, Calendar, Shield, Info, Timer } from "lucide-react";
+import { MapPin, Clock, Calendar, Shield, Info, Timer, ArrowRight } from "lucide-react";
 import type { PublicJobPosting } from "@/app/actions/jobs";
 import { SHIFT_LABELS } from "@/lib/constants";
 
@@ -17,141 +17,113 @@ export function JobCard({
   const isVerified = job.data_source === "self_reported";
 
   return (
-    <div className="rounded-xl border border-brand-gray-200 bg-white p-5 transition-shadow hover:shadow-md">
-      {/* Match reason tag */}
-      {matchReason && (
-        <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-brand-peach-50 px-3 py-1 text-xs font-medium text-brand-orange">
-          {matchReason}
-        </div>
-      )}
+    <div className="group relative flex flex-col gap-6 border-b border-brand-charcoal/10 bg-transparent px-4 py-8 transition-colors hover:bg-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      {/* Left: Job info */}
+      <div className="flex-1">
+        {/* Match reason tag */}
+        {matchReason && (
+          <div className="mb-4 inline-block bg-brand-orange px-3 py-1 text-xs font-bold uppercase tracking-widest text-white">
+            {matchReason}
+          </div>
+        )}
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        {/* Left: Job info */}
-        <div className="min-w-0 flex-1">
-          {/* Facility + Location */}
-          <p className="text-sm text-brand-gray-500">
-            {job.facilities?.name ?? "Unknown Facility"}
-            {job.facilities?.location_city && (
-              <span className="ml-2 inline-flex items-center gap-1">
-                <MapPin size={12} />
-                {job.facilities.location_city},{" "}
-                {job.facilities.location_state}
+        <div className="mb-2 flex items-center gap-3 text-sm font-bold uppercase tracking-widest text-brand-orange">
+          <span>{job.specialty}</span>
+          {isVerified && (
+            <>
+              <span className="h-1 w-1 rounded-full bg-brand-orange/30"></span>
+              <span className="flex items-center gap-1 text-[#66BB6A]">
+                <Shield size={14} /> Verified Post
               </span>
-            )}
-          </p>
+            </>
+          )}
+        </div>
 
-          {/* Title */}
-          <h3 className="mt-1 text-lg font-semibold text-brand-charcoal">
-            {job.title}
-          </h3>
+        {/* Title & Facility */}
+        <h3 className="text-2xl font-bold text-brand-charcoal transition-colors group-hover:text-brand-orange sm:text-3xl">
+          {job.title}
+        </h3>
+        
+        <p className="mt-2 text-lg text-brand-charcoal/70">
+          {job.facilities?.name ?? "Unknown Facility"}
+          {job.facilities?.location_city && (
+             <span className="ml-2 inline-flex items-center gap-1 font-medium">
+               <MapPin size={16} className="text-brand-orange" />
+               {job.facilities.location_city}, {job.facilities.location_state}
+             </span>
+          )}
+        </p>
 
-          {/* Tags row */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {/* Specialty chip */}
-            <span className="rounded-full bg-brand-gray-100 px-2.5 py-0.5 text-xs font-medium text-brand-charcoal">
-              {job.specialty}
+        {/* Requirements & Details row */}
+        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 font-mono text-sm text-brand-charcoal/60">
+          {job.shift_type && (
+            <span className="flex items-center gap-1.5">
+              <Clock size={14} />
+              {SHIFT_LABELS[job.shift_type] ?? job.shift_type}
             </span>
+          )}
+          {job.contract_weeks && (
+            <span className="flex items-center gap-1.5">
+              <Calendar size={14} />
+              {job.contract_weeks} wk
+            </span>
+          )}
+          {job.hours_per_week && (
+            <span className="flex items-center gap-1.5">
+              <Timer size={14} />
+              {job.hours_per_week} hrs/wk
+            </span>
+          )}
+          {job.start_date && (
+            <span className="flex items-center gap-1.5">
+              Starts {new Date(job.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            </span>
+          )}
+        </div>
+        
+        {job.requirements.length > 0 && (
+           <div className="mt-4 flex flex-wrap gap-2">
+             {job.requirements.slice(0, 3).map((req) => (
+               <span
+                 key={req}
+                 className="bg-brand-gray-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-charcoal"
+               >
+                 {req}
+               </span>
+             ))}
+           </div>
+        )}
+      </div>
 
-            {/* Shift */}
-            {job.shift_type && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-brand-gray-100 px-2.5 py-0.5 text-xs font-medium text-brand-charcoal">
-                <Clock size={11} />
-                {SHIFT_LABELS[job.shift_type] ?? job.shift_type}
-              </span>
-            )}
-
-            {/* Contract length */}
-            {job.contract_weeks && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-brand-gray-100 px-2.5 py-0.5 text-xs font-medium text-brand-charcoal">
-                <Calendar size={11} />
-                {job.contract_weeks} wk
-              </span>
-            )}
-
-            {/* Hours/week */}
-            {job.hours_per_week && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-brand-gray-100 px-2.5 py-0.5 text-xs font-medium text-brand-charcoal">
-                <Timer size={11} />
-                {job.hours_per_week} hrs/wk
-              </span>
-            )}
-
-            {/* Start date */}
-            {job.start_date && (
-              <span className="rounded-full bg-brand-gray-100 px-2.5 py-0.5 text-xs font-medium text-brand-charcoal">
-                Starts{" "}
-                {new Date(job.start_date).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })}
-              </span>
-            )}
-
-            {/* Top certifications (first 2) */}
-            {job.requirements.length > 0 && job.requirements.slice(0, 2).map((req) => (
-              <span
-                key={req}
-                className="rounded-full bg-brand-peach-50/60 px-2.5 py-0.5 text-xs font-medium text-brand-orange"
-              >
-                {req}
-              </span>
-            ))}
-
-            {/* Trust badge */}
-            {isVerified ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-[#66BB6A]">
-                <Shield size={11} />
-                Verified Direct Post
-              </span>
-            ) : (
-              <span
-                className="group relative inline-flex items-center gap-1 rounded-full bg-brand-gray-100 px-2.5 py-0.5 text-xs font-medium text-brand-gray-500"
-                title="Sourced from public job boards. Claim your facility profile to manage listings directly."
-              >
-                <Info size={11} />
-                Sourced Listing
-              </span>
-            )}
-          </div>
+      {/* Right: Pay + Apply */}
+      <div className="flex shrink-0 flex-col items-start gap-4 sm:items-end">
+        <div className="text-left sm:text-right">
+          {job.pay_package_total && (
+            <p className="text-4xl font-extrabold tracking-tight text-brand-teal sm:text-5xl">
+              ${job.pay_package_total.toLocaleString()}
+            </p>
+          )}
+          <p className="mt-1 text-sm font-bold uppercase tracking-widest text-brand-charcoal/50">
+            Per Week
+          </p>
+          {job.pay_rate_hourly && (
+            <p className="mt-2 font-mono text-sm text-brand-charcoal/40">
+              ${job.pay_rate_hourly}/hr
+            </p>
+          )}
         </div>
 
-        {/* Right: Pay + Apply — always side-by-side */}
-        <div className="flex shrink-0 items-center gap-4">
-          <div className="text-right">
-            {job.pay_package_total && (
-              <p className="text-2xl font-bold text-[#26C6DA] sm:text-3xl">
-                ${job.pay_package_total.toLocaleString()}
-                <span className="text-sm font-normal text-[#666666]">
-                  /wk
-                </span>
-              </p>
-            )}
-            {job.pay_rate_hourly && (
-              <p className="text-sm text-[#666666]">
-                ${job.pay_rate_hourly}/hr
-              </p>
-            )}
-          </div>
-
-          {isLoggedIn ? (
-            job.has_applied ? (
-              <span className="rounded-xl bg-brand-green-light px-4 py-2 text-sm font-medium text-brand-success-dark">
-                Applied
-              </span>
-            ) : (
-              <Link
-                href={`/jobs/${job.id}`}
-                className="rounded-xl bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
-              >
-                Apply
-              </Link>
-            )
+        <div className="mt-4">
+          {isLoggedIn && job.has_applied ? (
+            <span className="inline-block bg-[#66BB6A] px-8 py-3 text-sm font-bold uppercase tracking-widest text-white">
+              Applied
+            </span>
           ) : (
             <Link
               href={`/jobs/${job.id}`}
-              className="rounded-xl bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+              className="inline-flex items-center gap-2 bg-brand-charcoal px-8 py-3 text-sm font-bold uppercase tracking-widest text-white transition-all hover:bg-brand-orange"
             >
-              Apply
+              View & Apply <ArrowRight size={16} />
             </Link>
           )}
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useId } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import {
   JOB_BOARD_SPECIALTIES,
@@ -22,6 +22,11 @@ export function PublicJobFilters() {
   const minPay = searchParams.get("min_weekly_pay") ?? "";
   const startWindow = searchParams.get("start_date_window") ?? "";
   const sourceFilter = searchParams.get("source_filter") ?? "all";
+
+  const minPayId = useId();
+  const stateId = useId();
+  const contractId = useId();
+  const startDateId = useId();
 
   const updateParams = useCallback(
     (updates: Record<string, string | string[] | null>) => {
@@ -62,41 +67,42 @@ export function PublicJobFilters() {
   return (
     <div className="space-y-4">
       {/* Desktop: side panel filter layout */}
-      <div className="space-y-5">
-        <div className="flex items-center gap-2 text-sm font-semibold text-brand-charcoal">
-          <SlidersHorizontal size={16} />
-          Filters
-        </div>
+      <div className="space-y-8">
+        <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-brand-charcoal">
+          <SlidersHorizontal size={16} aria-hidden="true" />
+          Filter Jobs
+        </h2>
 
         {/* Specialty */}
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-gray-500">
+        <fieldset>
+          <legend className="mb-4 text-xs font-bold uppercase tracking-widest text-brand-charcoal/60">
             Specialty
-          </p>
-          <div className="space-y-1.5">
+          </legend>
+          <div className="space-y-3">
             {JOB_BOARD_SPECIALTIES.map((s) => (
-              <label key={s} className="flex items-center gap-2 text-sm text-brand-charcoal">
+              <label key={s} className="flex items-center gap-3 text-sm font-medium text-brand-charcoal transition-colors hover:text-brand-orange">
                 <input
                   type="checkbox"
                   checked={specialties.includes(s)}
                   onChange={() => toggleArrayParam("specialty", s, specialties)}
-                  className="h-4 w-4 rounded border-brand-gray-300 text-brand-orange focus:ring-brand-orange"
+                  className="h-4 w-4 rounded-sm border-2 border-brand-charcoal/30 text-brand-orange focus:ring-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-2"
                 />
                 {s}
               </label>
             ))}
           </div>
-        </div>
+        </fieldset>
 
         {/* State */}
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-gray-500">
+        <div className="flex flex-col gap-3">
+          <label htmlFor={stateId} className="text-xs font-bold uppercase tracking-widest text-brand-charcoal/60">
             State
-          </p>
+          </label>
           <select
+            id={stateId}
             value={state}
             onChange={(e) => updateParams({ state: e.target.value })}
-            className="w-full rounded-lg border border-brand-gray-200 px-3 py-1.5 text-sm focus:border-brand-orange focus:ring-1 focus:ring-brand-orange focus:outline-none"
+            className="w-full rounded-none border-b-2 border-brand-charcoal bg-transparent px-0 py-2 text-sm font-bold text-brand-charcoal focus:border-brand-orange focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-2"
           >
             <option value="">All States</option>
             {STATES.map((s) => (
@@ -108,34 +114,35 @@ export function PublicJobFilters() {
         </div>
 
         {/* Shift Type */}
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-gray-500">
+        <fieldset>
+          <legend className="mb-4 text-xs font-bold uppercase tracking-widest text-brand-charcoal/60">
             Shift Type
-          </p>
-          <div className="space-y-1.5">
+          </legend>
+          <div className="space-y-3">
             {SHIFT_TYPE_OPTIONS.map((s) => (
-              <label key={s.value} className="flex items-center gap-2 text-sm text-brand-charcoal">
+              <label key={s.value} className="flex items-center gap-3 text-sm font-medium text-brand-charcoal transition-colors hover:text-brand-orange">
                 <input
                   type="checkbox"
                   checked={shiftTypes.includes(s.value)}
                   onChange={() => toggleArrayParam("shift_type", s.value, shiftTypes)}
-                  className="h-4 w-4 rounded border-brand-gray-300 text-brand-orange focus:ring-brand-orange"
+                  className="h-4 w-4 rounded-sm border-2 border-brand-charcoal/30 text-brand-orange focus:ring-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-2"
                 />
                 {s.label}
               </label>
             ))}
           </div>
-        </div>
+        </fieldset>
 
         {/* Contract Length */}
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-gray-500">
+        <div className="flex flex-col gap-3">
+          <label htmlFor={contractId} className="text-xs font-bold uppercase tracking-widest text-brand-charcoal/60">
             Contract Length
-          </p>
+          </label>
           <select
+            id={contractId}
             value={contractWeeks}
             onChange={(e) => updateParams({ contract_weeks: e.target.value })}
-            className="w-full rounded-lg border border-brand-gray-200 px-3 py-1.5 text-sm focus:border-brand-orange focus:ring-1 focus:ring-brand-orange focus:outline-none"
+            className="w-full rounded-none border-b-2 border-brand-charcoal bg-transparent px-0 py-2 text-sm font-bold text-brand-charcoal focus:border-brand-orange focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-2"
           >
             {CONTRACT_LENGTH_OPTIONS.map((o) => (
               <option key={o.label} value={o.value}>
@@ -146,12 +153,13 @@ export function PublicJobFilters() {
         </div>
 
         {/* Weekly Pay Range */}
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-gray-500">
+        <div className="flex flex-col gap-3">
+          <label htmlFor={minPayId} className="text-xs font-bold uppercase tracking-widest text-brand-charcoal/60">
             Min Weekly Pay
-          </p>
-          <div className="flex items-center gap-2">
+          </label>
+          <div className="flex items-center gap-4">
             <input
+              id={minPayId}
               type="range"
               min={1000}
               max={5000}
@@ -161,23 +169,24 @@ export function PublicJobFilters() {
                 const val = e.target.value;
                 updateParams({ min_weekly_pay: val === "1000" ? "" : val });
               }}
-              className="w-full accent-brand-orange"
+              className="w-full accent-brand-orange focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-2"
             />
-            <span className="w-16 text-right text-sm font-medium text-brand-charcoal">
+            <span className="w-20 font-mono text-sm font-bold text-brand-teal" aria-live="polite">
               ${(minPay ? parseInt(minPay) : 1000).toLocaleString()}
             </span>
           </div>
         </div>
 
         {/* Start Date */}
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-gray-500">
+        <div className="flex flex-col gap-3">
+          <label htmlFor={startDateId} className="text-xs font-bold uppercase tracking-widest text-brand-charcoal/60">
             Start Date
-          </p>
+          </label>
           <select
+            id={startDateId}
             value={startWindow}
             onChange={(e) => updateParams({ start_date_window: e.target.value })}
-            className="w-full rounded-lg border border-brand-gray-200 px-3 py-1.5 text-sm focus:border-brand-orange focus:ring-1 focus:ring-brand-orange focus:outline-none"
+            className="w-full rounded-none border-b-2 border-brand-charcoal bg-transparent px-0 py-2 text-sm font-bold text-brand-charcoal focus:border-brand-orange focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-2"
           >
             {START_DATE_OPTIONS.map((o) => (
               <option key={o.label} value={o.value}>
@@ -188,42 +197,46 @@ export function PublicJobFilters() {
         </div>
 
         {/* Source toggle */}
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-gray-500">
+        <fieldset>
+          <legend className="mb-4 text-xs font-bold uppercase tracking-widest text-brand-charcoal/60">
             Source
-          </p>
-          <div className="flex rounded-lg border border-brand-gray-200 bg-white p-0.5">
+          </legend>
+          <div className="flex border-2 border-brand-charcoal bg-transparent p-0.5" role="radiogroup" aria-label="Job Source Filter">
             <button
+              role="radio"
+              aria-checked={sourceFilter === "all"}
               onClick={() => updateParams({ source_filter: "all" })}
-              className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-2 ${
                 sourceFilter === "all"
-                  ? "bg-brand-orange text-white"
-                  : "text-brand-gray-500 hover:text-brand-charcoal"
+                  ? "bg-brand-charcoal text-white"
+                  : "text-brand-charcoal hover:bg-brand-charcoal/10"
               }`}
             >
               All
             </button>
             <button
+              role="radio"
+              aria-checked={sourceFilter === "direct_only"}
               onClick={() => updateParams({ source_filter: "direct_only" })}
-              className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-2 ${
                 sourceFilter === "direct_only"
-                  ? "bg-brand-orange text-white"
-                  : "text-brand-gray-500 hover:text-brand-charcoal"
+                  ? "bg-brand-charcoal text-white"
+                  : "text-brand-charcoal hover:bg-brand-charcoal/10"
               }`}
             >
-              Verified Only
+              Verified
             </button>
           </div>
-        </div>
+        </fieldset>
 
         {/* Clear all */}
         {hasFilters && (
           <button
             onClick={() => router.push("/jobs")}
-            className="flex items-center gap-1.5 text-sm text-brand-orange hover:text-brand-orange-hover"
+            className="flex w-full justify-center items-center gap-2 border-2 border-brand-danger px-4 py-3 text-sm font-bold uppercase tracking-widest text-brand-danger hover:bg-brand-danger hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-danger focus-visible:ring-offset-2 transition-colors"
           >
-            <X size={14} />
-            Clear all filters
+            <X size={16} aria-hidden="true" />
+            Clear Filters
           </button>
         )}
       </div>
@@ -238,12 +251,16 @@ export function MobileFilterToggle({
   children: React.ReactNode;
 }) {
   return (
-    <details className="rounded-xl border border-brand-gray-200 bg-white lg:hidden">
-      <summary className="flex cursor-pointer items-center gap-2 p-4 text-sm font-semibold text-brand-charcoal">
-        <Search size={16} />
-        Filter Jobs
+    <details className="border-t-4 border-brand-charcoal bg-white lg:hidden group">
+      <summary className="flex cursor-pointer items-center justify-between p-6 text-sm font-bold uppercase tracking-widest text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-2">
+        <span className="flex items-center gap-3">
+          <Search size={20} aria-hidden="true" />
+          Filter Jobs
+        </span>
+        <span className="text-xl leading-none group-open:hidden">+</span>
+        <span className="hidden text-xl leading-none group-open:block">-</span>
       </summary>
-      <div className="border-t border-brand-gray-200 p-4">{children}</div>
+      <div className="border-t-2 border-brand-charcoal/10 p-6">{children}</div>
     </details>
   );
 }
