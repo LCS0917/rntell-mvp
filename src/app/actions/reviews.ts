@@ -86,6 +86,11 @@ export async function getFacilityWithReviews(facilityId: string) {
         .select("hourly_rate, stipend_housing, stipend_meals")
         .eq("facility_id", facilityId),
       supabase
+        .from("community_reviews")
+        .select("id, post_title, review_text, score, reddit_url, posted_at")
+        .eq("facility_id", facilityId)
+        .order("score", { ascending: false }),
+      supabase
         .from("negotiation_levers")
         .select("id, lever_type, description, lever_value, verified_count")
         .eq("facility_id", facilityId)
