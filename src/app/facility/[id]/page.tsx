@@ -1,6 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
 import { getFacilityWithReviews } from "@/app/actions/reviews";
-import type { NegotiationLever } from "@/app/actions/reviews";
 import { notFound } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import {
@@ -11,8 +10,6 @@ import {
   ThumbsDown,
   ShieldCheck,
   DollarSign,
-  Zap,
-  AlertTriangle,
 } from "lucide-react";
 import { RatingBar } from "@/components/reviews/RatingBar";
 import { ReviewForm } from "@/components/reviews/ReviewForm";
@@ -38,7 +35,6 @@ export default async function FacilityDetailPage({ params }: Props) {
     aggregate,
     reviewCount,
     salaryAggregate,
-    levers,
     gsaBenchmark,
   } = await getFacilityWithReviews(id);
 
@@ -108,101 +104,38 @@ export default async function FacilityDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* ── Data Cards ── */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        {/* Trust Card */}
-        <div className="rounded-xl border border-brand-gray-200 bg-white p-5">
-          <div className="flex items-center gap-2 text-sm font-medium text-brand-gray-500">
-            <ShieldCheck size={16} className="text-brand-green" />
-            Trust Score
-          </div>
-          {aggregate ? (
-            <>
+      {/* ── Data Cards — only show if data exists ── */}
+      {(aggregate || salaryAggregate) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {aggregate && (
+            <div className="rounded-xl border border-brand-gray-200 bg-white p-5">
+              <div className="flex items-center gap-2 text-sm font-medium text-brand-gray-500">
+                <ShieldCheck size={16} className="text-brand-green" />
+                Trust Score
+              </div>
               <p className={`mt-2 text-3xl font-bold ${safetyColor}`}>
                 {aggregate.safety}
-                <span className="text-base font-normal text-brand-gray-400">
-                  /5
-                </span>
+                <span className="text-base font-normal text-brand-gray-400">/5</span>
               </p>
-              <p className="mt-1 text-xs text-brand-gray-400">
-                Avg Safety Rating
-              </p>
-            </>
-          ) : (
-            <p className="mt-3 text-sm text-brand-gray-400">
-              No reviews yet
-            </p>
+              <p className="mt-1 text-xs text-brand-gray-400">Avg Safety Rating</p>
+            </div>
           )}
-        </div>
-
-        {/* Salary Card */}
-        <div className="rounded-xl border border-brand-gray-200 bg-white p-5">
-          <div className="flex items-center gap-2 text-sm font-medium text-brand-gray-500">
-            <DollarSign size={16} className="text-brand-orange" />
-            Avg Weekly Pay
-          </div>
-          {salaryAggregate ? (
-            <>
+          {salaryAggregate && (
+            <div className="rounded-xl border border-brand-gray-200 bg-white p-5">
+              <div className="flex items-center gap-2 text-sm font-medium text-brand-gray-500">
+                <DollarSign size={16} className="text-brand-orange" />
+                Avg Weekly Pay
+              </div>
               <p className="mt-2 text-3xl font-bold text-brand-charcoal">
                 ${salaryAggregate.avgWeeklyPay.toLocaleString()}
               </p>
-              <div className="mt-1 flex items-center gap-1 text-xs">
-                {payDiff !== null && payDiff < 0 ? (
-                  <span className="flex items-center gap-0.5 text-brand-danger">
-                    <AlertTriangle size={12} />$
-                    {Math.abs(payDiff).toLocaleString()} below GSA benchmark
-                  </span>
-                ) : (
-                  <span className="text-brand-success-dark">
-                    ${payDiff?.toLocaleString()} above GSA benchmark
-                  </span>
-                )}
-              </div>
               <p className="mt-0.5 text-[10px] text-brand-gray-400">
-                GSA Benchmark: ${gsaBenchmark?.toLocaleString()}/wk
-                &middot; {salaryAggregate.reportCount} report
-                {salaryAggregate.reportCount !== 1 ? "s" : ""}
+                {salaryAggregate.reportCount} report{salaryAggregate.reportCount !== 1 ? "s" : ""}
               </p>
-            </>
-          ) : (
-            <p className="mt-3 text-sm text-brand-gray-400">
-              No salary data yet
-            </p>
+            </div>
           )}
         </div>
-
-        {/* Levers Card */}
-        <div className="rounded-xl border border-brand-gray-200 bg-white p-5">
-          <div className="flex items-center gap-2 text-sm font-medium text-brand-gray-500">
-            <Zap size={16} className="text-brand-orange" />
-            Negotiation Levers
-          </div>
-          {levers.length > 0 ? (
-            <ul className="mt-3 space-y-2">
-              {levers.map((lever: NegotiationLever) => (
-                <li
-                  key={lever.id}
-                  className="flex items-start gap-2 text-xs text-brand-charcoal"
-                >
-                  <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-orange" />
-                  <span>
-                    {lever.description || lever.lever_value || lever.lever_type}
-                    {lever.verified_count > 0 && (
-                      <span className="ml-1 text-brand-gray-400">
-                        ({lever.verified_count} confirmed)
-                      </span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-3 text-sm text-brand-gray-400">
-              No levers reported
-            </p>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* ── Rating Bars ── */}
       {aggregate && (
