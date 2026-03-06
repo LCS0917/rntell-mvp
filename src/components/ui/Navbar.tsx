@@ -7,12 +7,12 @@ import { createClient } from "@/utils/supabase/client";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authState, setAuthState] = useState<"loading" | "in" | "out">("loading");
 
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
-      setIsLoggedIn(!!user);
+      setAuthState(user ? "in" : "out");
     });
   }, []);
 
@@ -47,31 +47,33 @@ export default function Navbar() {
           >
             Analyze
           </Link>
-          <div className="flex items-center gap-4 border-l border-brand-charcoal/10 pl-8">
-            {isLoggedIn ? (
-              <Link
-                href="/dashboard"
-                className="rounded-lg bg-brand-orange px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-orange-hover shadow-sm"
-              >
-                Dashboard
-              </Link>
-            ) : (
-              <>
+          {authState !== "loading" && (
+            <div className="flex items-center gap-4 border-l border-brand-charcoal/10 pl-8">
+              {authState === "in" ? (
                 <Link
-                  href="/login"
-                  className="text-xs font-bold uppercase tracking-widest text-brand-charcoal hover:text-brand-orange transition-colors"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/signup"
+                  href="/dashboard"
                   className="rounded-lg bg-brand-orange px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-orange-hover shadow-sm"
                 >
-                  Get Started
+                  Dashboard
                 </Link>
-              </>
-            )}
-          </div>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="text-xs font-bold uppercase tracking-widest text-brand-charcoal hover:text-brand-orange transition-colors"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="rounded-lg bg-brand-orange px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-orange-hover shadow-sm"
+                  >
+                    Get Started
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Mobile hamburger */}
@@ -110,7 +112,7 @@ export default function Navbar() {
               Analyze an Offer
             </Link>
             <hr className="border-brand-charcoal/5" />
-            {isLoggedIn ? (
+            {authState === "in" ? (
               <Link
                 href="/dashboard"
                 onClick={() => setOpen(false)}
@@ -118,7 +120,7 @@ export default function Navbar() {
               >
                 Dashboard
               </Link>
-            ) : (
+            ) : authState === "out" ? (
               <>
                 <Link
                   href="/login"
@@ -135,7 +137,7 @@ export default function Navbar() {
                   Get Started
                 </Link>
               </>
-            )}
+            ) : null}
           </div>
         </div>
       )}
