@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type AnalysisResult,
   type AuditRiskResult,
@@ -178,7 +178,6 @@ export default function AnalyzeClient() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error("Analysis failed:", message);
       setError(`Something went wrong: ${message}`);
     } finally {
       setLoading(false);
@@ -244,6 +243,11 @@ export default function AnalyzeClient() {
     setAuditRisk(risk);
   };
 
+  // Scroll to top when results appear
+  useEffect(() => {
+    if (result) window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [result]);
+
   // Show results
   if (result) {
     return (
@@ -280,7 +284,7 @@ export default function AnalyzeClient() {
         <button
           type="button"
           onClick={() => setTab("manual")}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
             tab === "manual"
               ? "bg-white text-brand-charcoal shadow-sm"
               : "text-brand-gray-500 hover:text-brand-charcoal"
@@ -292,7 +296,7 @@ export default function AnalyzeClient() {
         <button
           type="button"
           onClick={() => setTab("pdf")}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
             tab === "pdf"
               ? "bg-white text-brand-charcoal shadow-sm"
               : "text-brand-gray-500 hover:text-brand-charcoal"
@@ -386,9 +390,9 @@ function PdfDropZone({
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
       onClick={() => fileRef.current?.click()}
-      className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 transition-colors ${
+      className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 transition-all duration-200 ${
         dragging
-          ? "border-brand-orange bg-brand-peach-50/50"
+          ? "border-brand-orange bg-brand-peach-50/50 scale-[1.01]"
           : "border-brand-gray-300 bg-white hover:border-brand-orange/50 hover:bg-brand-peach-50/30"
       }`}
     >
@@ -475,10 +479,10 @@ function ContractForm({
       </fieldset>
 
       {/* Contract Details */}
-      <fieldset className="mb-6">
-        <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-gray-500">
+      <div className="mb-6 border-t border-brand-gray-100 pt-6">
+        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-gray-500">
           Contract Details
-        </legend>
+        </p>
         <div className="grid grid-cols-2 gap-4">
           <SelectField
             label="Specialty"
@@ -540,7 +544,7 @@ function ContractForm({
       </fieldset>
 
       {/* Compensation */}
-      <fieldset className="mb-6">
+      <fieldset className="mb-6 border-t border-brand-gray-100 pt-6">
         <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-gray-500">
           Compensation
         </legend>
@@ -560,40 +564,45 @@ function ContractForm({
           >
             <span>Overtime, On-Call &amp; Differential Rates</span>
             <ChevronDown
-              className={`h-4 w-4 text-brand-gray-400 transition-transform ${showDifferentials ? "rotate-180" : ""}`}
+              className={`h-4 w-4 text-brand-gray-400 transition-transform duration-200 ${showDifferentials ? "rotate-180" : ""}`}
             />
           </button>
-          {showDifferentials && (
-            <div className="grid grid-cols-2 gap-4 rounded-lg border border-brand-gray-200 bg-brand-gray-50 p-4">
-              <CurrencyField
-                label="Overtime rate (1.5x)"
-                value={form.overtime_rate}
-                onChange={(v) => updateForm({ overtime_rate: v })}
-                placeholder="Auto-calculated if blank"
-              />
-              <CurrencyField
-                label="Double-time rate (2x)"
-                value={form.doubletime_rate}
-                onChange={(v) => updateForm({ doubletime_rate: v })}
-                placeholder="Auto-calculated if blank"
-              />
-              <CurrencyField
-                label="On-call rate"
-                value={form.oncall_rate}
-                onChange={(v) => updateForm({ oncall_rate: v })}
-              />
-              <CurrencyField
-                label="Callback rate"
-                value={form.callback_rate}
-                onChange={(v) => updateForm({ callback_rate: v })}
-              />
+          <div
+            className="grid transition-[grid-template-rows] duration-200 ease-out"
+            style={{ gridTemplateRows: showDifferentials ? "1fr" : "0fr" }}
+          >
+            <div className="overflow-hidden">
+              <div className="mt-3 grid grid-cols-2 gap-4 rounded-lg border border-brand-gray-200 bg-brand-gray-50 p-4">
+                <CurrencyField
+                  label="Overtime rate (1.5x)"
+                  value={form.overtime_rate}
+                  onChange={(v) => updateForm({ overtime_rate: v })}
+                  placeholder="Auto-calculated if blank"
+                />
+                <CurrencyField
+                  label="Double-time rate (2x)"
+                  value={form.doubletime_rate}
+                  onChange={(v) => updateForm({ doubletime_rate: v })}
+                  placeholder="Auto-calculated if blank"
+                />
+                <CurrencyField
+                  label="On-call rate"
+                  value={form.oncall_rate}
+                  onChange={(v) => updateForm({ oncall_rate: v })}
+                />
+                <CurrencyField
+                  label="Callback rate"
+                  value={form.callback_rate}
+                  onChange={(v) => updateForm({ callback_rate: v })}
+                />
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </fieldset>
 
       {/* Stipends */}
-      <fieldset className="mb-6">
+      <fieldset className="mb-6 border-t border-brand-gray-100 pt-6">
         <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-gray-500">
           Stipends &amp; Reimbursements
         </legend>
@@ -631,44 +640,49 @@ function ContractForm({
       </fieldset>
 
       {/* Bonuses — collapsible */}
-      <fieldset className="mb-6">
+      <fieldset className="mb-6 border-t border-brand-gray-100 pt-6">
         <button
           type="button"
           onClick={() => setShowBonuses((p) => !p)}
-          className="mb-3 flex w-full items-center justify-between rounded-lg border border-brand-gray-200 bg-brand-gray-50 px-4 py-2.5 text-sm font-semibold uppercase tracking-wide text-brand-gray-500 hover:bg-brand-gray-100"
+          className="flex w-full items-center justify-between rounded-lg border border-brand-gray-200 bg-brand-gray-50 px-4 py-2.5 text-sm font-medium text-brand-charcoal hover:bg-brand-gray-100"
         >
           <span>Bonuses (optional)</span>
           <ChevronDown
-            className={`h-4 w-4 transition-transform ${showBonuses ? "rotate-180" : ""}`}
+            className={`h-4 w-4 text-brand-gray-400 transition-transform duration-200 ${showBonuses ? "rotate-180" : ""}`}
           />
         </button>
-        {showBonuses && (
-          <div className="space-y-4 rounded-lg border border-brand-gray-200 bg-brand-gray-50 p-4">
-            <div className="grid grid-cols-2 gap-4">
-              <CurrencyField
-                label="Sign-on bonus"
-                value={form.bonus_signon}
-                onChange={(v) => updateForm({ bonus_signon: v })}
-              />
-              <CurrencyField
-                label="Completion bonus"
-                value={form.bonus_completion}
-                onChange={(v) => updateForm({ bonus_completion: v })}
-              />
-              <CurrencyField
-                label="Retention bonus"
-                value={form.bonus_retention}
-                onChange={(v) => updateForm({ bonus_retention: v })}
-              />
-              <InputField
-                label="Bonus paid in which week?"
-                value={form.bonus_taxable_week}
-                onChange={(v) => updateForm({ bonus_taxable_week: v })}
-                placeholder='e.g. "first" or "last"'
-              />
+        <div
+          className="grid transition-[grid-template-rows] duration-200 ease-out"
+          style={{ gridTemplateRows: showBonuses ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div className="mt-3 space-y-4 rounded-lg border border-brand-gray-200 bg-brand-gray-50 p-4">
+              <div className="grid grid-cols-2 gap-4">
+                <CurrencyField
+                  label="Sign-on bonus"
+                  value={form.bonus_signon}
+                  onChange={(v) => updateForm({ bonus_signon: v })}
+                />
+                <CurrencyField
+                  label="Completion bonus"
+                  value={form.bonus_completion}
+                  onChange={(v) => updateForm({ bonus_completion: v })}
+                />
+                <CurrencyField
+                  label="Retention bonus"
+                  value={form.bonus_retention}
+                  onChange={(v) => updateForm({ bonus_retention: v })}
+                />
+                <InputField
+                  label="Bonus paid in which week?"
+                  value={form.bonus_taxable_week}
+                  onChange={(v) => updateForm({ bonus_taxable_week: v })}
+                  placeholder='e.g. "first" or "last"'
+                />
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </fieldset>
 
       {error && (
@@ -678,7 +692,7 @@ function ContractForm({
       <button
         type="submit"
         disabled={loading}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-orange px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-orange-hover disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-orange px-6 py-3 text-base font-semibold text-white transition-all duration-150 hover:bg-brand-orange-hover active:scale-[0.98] disabled:opacity-60"
       >
         {loading ? (
           <>
@@ -972,14 +986,14 @@ function ResultsDisplay({
         <div className="mt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link
             href={`/signup?from=analyze&session_id=${result.session_id}`}
-            className="flex items-center gap-2 rounded-lg bg-brand-orange px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
+            className="flex items-center gap-2 rounded-lg bg-brand-orange px-6 py-3 text-sm font-semibold text-white transition-all duration-150 hover:bg-brand-orange-hover active:scale-[0.98]"
           >
             Create Free Account
             <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             href={`/login?from=analyze&session_id=${result.session_id}`}
-            className="rounded-lg px-6 py-3 text-sm font-medium text-brand-charcoal transition-colors hover:bg-brand-gray-100"
+            className="rounded-lg px-6 py-3 text-sm font-medium text-brand-charcoal transition-all duration-150 hover:bg-brand-gray-100"
           >
             Sign In
           </Link>
@@ -990,9 +1004,9 @@ function ResultsDisplay({
       <div className="text-center">
         <button
           onClick={onStartOver}
-          className="text-sm text-brand-gray-400 underline hover:text-brand-gray-500"
+          className="text-sm font-medium text-brand-gray-500 transition-colors hover:text-brand-charcoal"
         >
-          Analyze another contract
+          &larr; Analyze another contract
         </button>
       </div>
     </main>
@@ -1202,7 +1216,7 @@ function TaxContextForm({
           </p>
         </div>
         <ChevronDown
-          className={`h-5 w-5 flex-shrink-0 text-brand-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-5 w-5 flex-shrink-0 text-brand-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -1281,7 +1295,7 @@ function TaxContextForm({
           <button
             type="submit"
             disabled={loading}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-orange px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-orange-hover disabled:opacity-60"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-orange px-6 py-3 text-base font-semibold text-white transition-all duration-150 hover:bg-brand-orange-hover active:scale-[0.98] disabled:opacity-60"
           >
             {loading ? (
               <>
@@ -1440,14 +1454,20 @@ function StipendRow({
 }) {
   const overGsa = offer > gsa;
   const atGsa = offer === gsa;
-  const indicator = overGsa ? "🔴" : atGsa ? "🟡" : offer > 0 ? "🟢" : null;
+  const dotColor = overGsa
+    ? "bg-brand-danger"
+    : atGsa
+      ? "bg-amber-400"
+      : offer > 0
+        ? "bg-brand-green"
+        : null;
 
   return (
     <div className="col-span-2 grid grid-cols-3 items-center gap-2">
       <span className="text-sm text-brand-gray-500">{label}</span>
-      <span className="text-sm font-medium text-brand-charcoal">
-        {offer > 0 ? `$${formatNum(offer)}/wk` : "—"}{" "}
-        {indicator && <span className="text-xs">{indicator}</span>}
+      <span className="flex items-center gap-1.5 text-sm font-medium text-brand-charcoal">
+        {offer > 0 ? `$${formatNum(offer)}/wk` : "—"}
+        {dotColor && <span className={`inline-block h-2 w-2 rounded-full ${dotColor}`} />}
       </span>
       <span className="text-sm text-brand-gray-500">${formatNum(gsa)}/wk</span>
     </div>
