@@ -47,8 +47,10 @@ export default function Navbar() {
           >
             Analyze
           </Link>
-          {authState !== "loading" && (
-            <div className="flex items-center gap-4 border-l border-brand-charcoal/10 pl-8">
+          <div className="flex items-center gap-4 border-l border-brand-charcoal/10 pl-8 min-w-[160px] justify-end">
+            {authState === "loading" ? (
+              <div className="h-8 w-24 animate-pulse rounded-lg bg-brand-gray-100" />
+            ) : (
               {authState === "in" ? (
                 <Link
                   href="/dashboard"
@@ -72,8 +74,8 @@ export default function Navbar() {
                   </Link>
                 </>
               )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Mobile hamburger */}
