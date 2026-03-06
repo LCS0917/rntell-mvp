@@ -72,7 +72,7 @@ export async function getFacilityWithReviews(facilityId: string) {
       supabase
         .from("facilities")
         .select(
-          "id, name, location_city, location_state, type, bed_count, is_verified"
+          "id, name, location_city, location_state, type, bed_count, is_verified, is_claimed"
         )
         .eq("id", facilityId)
         .single(),
