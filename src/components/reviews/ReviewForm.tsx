@@ -59,8 +59,8 @@ export function ReviewForm({ facilityId, isLoggedIn }: { facilityId: string; isL
 
   const [ratings, setRatings] = useState({
     safety: 3,
-    staffing: 3,
-    culture: 3,
+    pay: 3,
+    management: 3,
   });
 
   function setRating(key: keyof typeof ratings) {
@@ -72,13 +72,12 @@ export function ReviewForm({ facilityId, isLoggedIn }: { facilityId: string; isL
     setError("");
 
     const form = new FormData(e.currentTarget);
-    const pros = (form.get("pros") as string).trim();
-    const cons = (form.get("cons") as string).trim();
+    const comment = (form.get("comment") as string).trim();
     const wouldReturn = form.get("would_return") === "yes";
 
     // Overall is the average of the three sliders
     const overall = Math.round(
-      (ratings.safety + ratings.staffing + ratings.culture) / 3
+      (ratings.safety + ratings.pay + ratings.management) / 3
     );
 
     startTransition(async () => {
@@ -86,10 +85,10 @@ export function ReviewForm({ facilityId, isLoggedIn }: { facilityId: string; isL
         facility_id: facilityId,
         rating_overall: overall,
         rating_safety: ratings.safety,
-        rating_staffing: ratings.staffing,
-        rating_culture: ratings.culture,
-        pros,
-        cons,
+        rating_staffing: ratings.pay,
+        rating_culture: ratings.management,
+        pros: comment,
+        cons: "",
         would_return: wouldReturn,
       });
 
@@ -144,47 +143,30 @@ export function ReviewForm({ facilityId, isLoggedIn }: { facilityId: string; isL
             onChange={setRating("safety")}
           />
           <RatingSlider
-            label="Staffing"
-            value={ratings.staffing}
-            onChange={setRating("staffing")}
+            label="Pay"
+            value={ratings.pay}
+            onChange={setRating("pay")}
           />
           <RatingSlider
-            label="Culture"
-            value={ratings.culture}
-            onChange={setRating("culture")}
+            label="Management"
+            value={ratings.management}
+            onChange={setRating("management")}
           />
         </div>
 
-        {/* Pros */}
+        {/* Comment */}
         <div>
           <label
-            htmlFor="pros"
+            htmlFor="comment"
             className="mb-1 block text-sm font-medium text-brand-charcoal"
           >
-            Pros
+            Comment
           </label>
           <textarea
-            id="pros"
-            name="pros"
-            rows={3}
-            placeholder="What did you like about this facility?"
-            className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm text-brand-charcoal placeholder:text-brand-gray-400 focus:border-brand-orange focus:outline-none focus:ring-1 focus:ring-brand-orange"
-          />
-        </div>
-
-        {/* Cons */}
-        <div>
-          <label
-            htmlFor="cons"
-            className="mb-1 block text-sm font-medium text-brand-charcoal"
-          >
-            Cons
-          </label>
-          <textarea
-            id="cons"
-            name="cons"
-            rows={3}
-            placeholder="What could be improved?"
+            id="comment"
+            name="comment"
+            rows={4}
+            placeholder="Share your experience at this facility..."
             className="w-full rounded-lg border border-brand-gray-200 px-3 py-2 text-sm text-brand-charcoal placeholder:text-brand-gray-400 focus:border-brand-orange focus:outline-none focus:ring-1 focus:ring-brand-orange"
           />
         </div>
