@@ -479,10 +479,10 @@ function ContractForm({
       </fieldset>
 
       {/* Contract Details */}
-      <div className="mb-6 border-t border-brand-gray-100 pt-6">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-gray-500">
+      <fieldset className="mb-6 border-t border-brand-gray-100 pt-6">
+        <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-gray-500">
           Contract Details
-        </p>
+        </legend>
         <div className="grid grid-cols-2 gap-4">
           <SelectField
             label="Specialty"
